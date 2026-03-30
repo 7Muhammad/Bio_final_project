@@ -72,32 +72,7 @@ A valid directory contains files such as:
 - `features.tsv` / `genes.tsv` (or gzipped versions)
 
 ```{r detect-10x-dir}
-find_10x_dir <- function(root) {
-  all_dirs <- unique(c(root, list.dirs(root, recursive = TRUE, full.names = TRUE)))
-
-  is_10x_dir <- function(d) {
-    files <- list.files(d)
-    has_matrix <- any(files %in% c("matrix.mtx", "matrix.mtx.gz"))
-    has_barcodes <- any(files %in% c("barcodes.tsv", "barcodes.tsv.gz"))
-    has_features <- any(files %in% c("features.tsv", "features.tsv.gz", "genes.tsv", "genes.tsv.gz"))
-    has_matrix && has_barcodes && has_features
-  }
-
-  candidates <- all_dirs[vapply(all_dirs, is_10x_dir, logical(1))]
-
-  if (length(candidates) == 0) {
-    stop(
-      paste0(
-        "No valid 10X directory was found under ", root, ".\n",
-        "Make sure /Data/ contains matrix.mtx(.gz), barcodes.tsv(.gz), and features.tsv/genes.tsv(.gz)."
-      )
-    )
-  }
-
-  candidates[1]
-}
-
-TENX_DIR <- find_10x_dir(DATA_ROOT)
+TENX_DIR <- "Data/GSE149689"
 cat("Using 10X directory:\n", TENX_DIR, "\n")
 ```
 
