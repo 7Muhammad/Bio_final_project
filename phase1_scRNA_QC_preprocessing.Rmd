@@ -1,0 +1,356 @@
+---
+title: "Phase 1 - scRNA-seq QC and Preprocessing"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Goal
+
+This document implements **Phase 1** of the project workflow using the same logic as **Tutorial 10**:
+
+- load 10X scRNA-seq data from `/Data/`
+- inspect matrix dimensions and sparsity
+- create a Seurat object
+- calculate mitochondrial percentage
+- visualize QC metrics
+- choose filtering thresholds
+- filter low-quality cells
+
+> This file is written so you can use it directly in your project and later add your own explanations/decision checkpoint text.
+
+---
+
+## 1. Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(Seurat)
+library(Matrix)
+library(tidyverse)
+library(patchwork)
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+---
+
+## 2. User-defined parameters
+
+Edit these values after inspecting the QC plots.
+
+```{r parameters}
+# Root folder containing the dataset
+DATA_ROOT <- "Data/"
+
+# Seurat project name
+PROJECT_NAME <- "COVID_PBMC"
+
+# QC thresholds (initial defaults; adjust after inspection)
+MIN_FEATURES <- 500
+MAX_FEATURES <- 6000
+MAX_PERCENT_MT <- 20
+
+# Optional: minimum number of cells expressing a gene to keep the gene at object creation
+MIN_CELLS_PER_GENE <- 3
+```
+
+---
+
+## 3. Locate and load the 10X data
+
+This chunk tries to automatically find a valid 10X directory inside `/Data/`.
+A valid directory contains files such as:
+
+- `matrix.mtx` or `matrix.mtx.gz`
+- `barcodes.tsv` or `barcodes.tsv.gz`
+- `features.tsv` / `genes.tsv` (or gzipped versions)
+
+```{r detect-10x-dir}
+find_10x_dir <- function(root) {
+  all_dirs <- unique(c(root, list.dirs(root, recursive = TRUE, full.names = TRUE)))
+
+  is_10x_dir <- function(d) {
+    files <- list.files(d)
+    has_matrix <- any(files %in% c("matrix.mtx", "matrix.mtx.gz"))
+    has_barcodes <- any(files %in% c("barcodes.tsv", "barcodes.tsv.gz"))
+    has_features <- any(files %in% c("features.tsv", "features.tsv.gz", "genes.tsv", "genes.tsv.gz"))
+    has_matrix && has_barcodes && has_features
+  }
+
+  candidates <- all_dirs[vapply(all_dirs, is_10x_dir, logical(1))]
+
+  if (length(candidates) == 0) {
+    stop(
+      paste0(
+        "No valid 10X directory was found under ", root, ".\n",
+        "Make sure /Data/ contains matrix.mtx(.gz), barcodes.tsv(.gz), and features.tsv/genes.tsv(.gz)."
+      )
+    )
+  }
+
+  candidates[1]
+}
+
+TENX_DIR <- find_10x_dir(DATA_ROOT)
+cat("Using 10X directory:\n", TENX_DIR, "\n")
+```
+
+```{r load-data}
+counts <- Read10X(data.dir = TENX_DIR)
+
+cat("Preview of the count matrix:\n")
+counts[1:min(10, nrow(counts)), 1:min(3, ncol(counts))]
+```
+
+---
+
+## 4. Inspect matrix dimensions and sparsity
+
+```{r matrix-summary}
+total_entries <- nrow(counts) * ncol(counts)
+nonzero_entries <- length(counts@x)
+sparsity_pct <- 100 * (1 - nonzero_entries / total_entries)
+avg_genes_per_cell <- mean(Matrix::colSums(counts > 0))
+
+cat("Matrix dimensions:\n")
+cat("  Genes (rows): ", nrow(counts), "\n", sep = "")
+cat("  Cells (columns): ", ncol(counts), "\n", sep = "")
+cat("  Total entries: ", format(total_entries, big.mark = ","), "\n", sep = "")
+cat("  Non-zero entries: ", format(nonzero_entries, big.mark = ","), "\n", sep = "")
+cat("  Sparsity: ", round(sparsity_pct, 2), "%\n", sep = "")
+cat("  Average genes per cell: ", round(avg_genes_per_cell, 1), "\n", sep = "")
+```
+
+---
+
+## 5. Genes detected per cell
+
+```{r genes-per-cell}
+genes_per_cell <- Matrix::colSums(counts > 0)
+summary(genes_per_cell)
+```
+
+```{r genes-per-cell-plot, fig.cap="Genes detected per cell (sorted, log scale)"}
+plot(
+  sort(genes_per_cell),
+  xlab = "Cells (sorted)",
+  ylab = "Genes detected",
+  log = "y",
+  main = "Genes per Cell Distribution",
+  pch = 16,
+  cex = 0.35
+)
+
+abline(h = MIN_FEATURES, col = "red", lwd = 2, lty = 2)
+abline(h = MAX_FEATURES, col = "blue", lwd = 2, lty = 2)
+legend(
+  "topleft",
+  legend = c(
+    paste("MIN_FEATURES =", MIN_FEATURES),
+    paste("MAX_FEATURES =", MAX_FEATURES)
+  ),
+  col = c("red", "blue"),
+  lty = 2,
+  lwd = 2,
+  bty = "n"
+)
+```
+
+---
+
+## 6. Create Seurat object
+
+```{r create-seurat}
+seurat <- CreateSeuratObject(
+  counts = counts,
+  project = PROJECT_NAME,
+  min.cells = MIN_CELLS_PER_GENE
+)
+
+cat("Seurat object created.\n")
+cat("  Cells:", ncol(seurat), "\n")
+cat("  Genes:", nrow(seurat), "\n")
+```
+
+---
+
+## 7. Add mitochondrial QC metric
+
+```{r percent-mt}
+seurat[["percent.mt"]] <- PercentageFeatureSet(seurat, pattern = "^MT-")
+
+summary(seurat$percent.mt)
+```
+
+```{r mito-distribution, fig.cap="Mitochondrial percentage per cell (sorted)"}
+plot(
+  sort(seurat$percent.mt),
+  xlab = "Cells (sorted)",
+  ylab = "% mitochondrial reads",
+  main = "Mitochondrial Content Distribution",
+  pch = 16,
+  cex = 0.35
+)
+
+abline(h = MAX_PERCENT_MT, col = "darkgreen", lwd = 2, lty = 2)
+legend(
+  "topleft",
+  legend = paste("MAX_PERCENT_MT =", MAX_PERCENT_MT),
+  col = "darkgreen",
+  lty = 2,
+  lwd = 2,
+  bty = "n"
+)
+```
+
+---
+
+## 8. Visualize QC metrics
+
+```{r violin-qc, fig.width=11, fig.height=4}
+VlnPlot(
+  seurat,
+  features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
+  ncol = 3,
+  pt.size = 0.1
+) + NoLegend()
+```
+
+```{r scatter-qc, fig.width=10, fig.height=4}
+p1 <- FeatureScatter(seurat, feature1 = "nCount_RNA", feature2 = "percent.mt") +
+  ggtitle("nCount_RNA vs percent.mt")
+
+p2 <- FeatureScatter(seurat, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") +
+  ggtitle("nCount_RNA vs nFeature_RNA")
+
+p1 + p2
+```
+
+---
+
+## 9. Summarize filtering rules before applying them
+
+```{r qc-summary-before}
+qc_summary_before <- tibble(
+  metric = c("cells_total",
+             paste0("nFeature_RNA <= ", MIN_FEATURES),
+             paste0("nFeature_RNA >= ", MAX_FEATURES),
+             paste0("percent.mt >= ", MAX_PERCENT_MT)),
+  value = c(
+    ncol(seurat),
+    sum(seurat$nFeature_RNA <= MIN_FEATURES),
+    sum(seurat$nFeature_RNA >= MAX_FEATURES),
+    sum(seurat$percent.mt >= MAX_PERCENT_MT)
+  )
+)
+
+qc_summary_before
+```
+
+---
+
+## 10. Filter cells
+
+```{r filter-cells}
+seurat_filtered <- subset(
+  seurat,
+  subset = nFeature_RNA > MIN_FEATURES &
+           nFeature_RNA < MAX_FEATURES &
+           percent.mt < MAX_PERCENT_MT
+)
+
+cat("Cells before filtering:", ncol(seurat), "\n")
+cat("Cells after filtering:", ncol(seurat_filtered), "\n")
+cat("Cells removed:", ncol(seurat) - ncol(seurat_filtered), "\n")
+```
+
+---
+
+## 11. Compare QC metrics before vs after filtering
+
+```{r compare-violin, fig.width=11, fig.height=8}
+p_before <- VlnPlot(
+  seurat,
+  features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
+  ncol = 3,
+  pt.size = 0.1
+) + plot_annotation(title = "Before filtering")
+
+p_after <- VlnPlot(
+  seurat_filtered,
+  features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
+  ncol = 3,
+  pt.size = 0.1
+) + plot_annotation(title = "After filtering")
+
+p_before / p_after
+```
+
+```{r compare-summary-after}
+qc_summary_after <- tibble(
+  metric = c("cells_remaining",
+             "median_nFeature_RNA",
+             "median_nCount_RNA",
+             "median_percent.mt"),
+  value = c(
+    ncol(seurat_filtered),
+    median(seurat_filtered$nFeature_RNA),
+    median(seurat_filtered$nCount_RNA),
+    median(seurat_filtered$percent.mt)
+  )
+)
+
+qc_summary_after
+```
+
+---
+
+## 12. Save the filtered object
+
+```{r save-object}
+saveRDS(seurat_filtered, file = file.path(DATA_ROOT, "phase1_seurat_filtered.rds"))
+cat("Saved filtered Seurat object to:\n", file.path(DATA_ROOT, "phase1_seurat_filtered.rds"), "\n")
+```
+
+---
+
+## 13. Decision checkpoint 1
+
+Use this section in your final project write-up.
+
+**Decision:** I filtered cells using thresholds on the number of detected genes and mitochondrial percentage.
+
+**What I chose in this draft:**
+
+- lower gene threshold = `r MIN_FEATURES`
+- upper gene threshold = `r MAX_FEATURES`
+- mitochondrial threshold = `r MAX_PERCENT_MT`%
+
+**Why this choice:**  
+These thresholds remove likely low-quality droplets/dead cells (too few genes), likely doublets or unusually complex droplets (too many genes), and stressed/dying cells (high mitochondrial percentage).
+
+**Alternatives:**  
+Possible alternatives include using different fixed thresholds, adaptive thresholds based on median absolute deviation (MAD), explicit doublet-detection tools, or more dataset-specific mitochondrial cutoffs.
+
+**What you still need to add:**  
+Replace this generic explanation with your own interpretation based on the actual QC plots from your dataset.
+
+---
+
+## 14. Next step
+
+After Phase 1, continue with:
+
+- `SCTransform()`
+- `RunPCA()`
+- `ElbowPlot()`
+- `RunUMAP()` / `RunTSNE()`
+- `FindNeighbors()` and `FindClusters()`
+
+That corresponds to the next part of Tutorial 10 and your project roadmap.
