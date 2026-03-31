@@ -1,0 +1,178 @@
+---
+title: "Phase 2 - Normalization & Dimensionality Reduction"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Goal
+
+This document implements **Phase 2** of the project workflow:
+
+- normalize with SCTransform (regressing out mitochondrial percentage)
+- run PCA and inspect loadings / heatmaps
+- choose the number of PCs via elbow plot
+- run UMAP and t-SNE embeddings
+
+---
+
+## 1. Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+---
+
+## 2. Load the filtered Seurat object from Phase 1
+
+```{r load-object}
+seurat <- readRDS("Data/phase1_seurat_filtered.rds")
+
+cat("Loaded filtered Seurat object.\n")
+cat("  Cells:", ncol(seurat), "\n")
+cat("  Genes:", nrow(seurat), "\n")
+```
+
+---
+
+## 3. User-defined parameters
+
+```{r parameters}
+# Number of PCs to use for UMAP / t-SNE (adjust after inspecting elbow plot)
+N_PCS <- 20
+```
+
+---
+
+## 4. Normalization
+
+We use the standard LogNormalize workflow (NormalizeData → FindVariableFeatures →
+ScaleData) because **both SCTransform v1 and v2** fail with an out-of-memory error
+at the `sctransform::correct()` step, which allocates a dense cells × genes matrix
+(~9.1 GB) — this is inherent to SCTransform's architecture and not resolved by
+the `glmGamPoi` backend or `vst.flavor = "v2"`.
+
+The LogNormalize workflow is well-validated, widely used in published scRNA-seq
+studies, and produces comparable downstream results for clustering and
+differential expression.
+
+```{r normalize}
+seurat <- NormalizeData(seurat, normalization.method = "LogNormalize", scale.factor = 10000)
+seurat <- FindVariableFeatures(seurat, selection.method = "vst", nfeatures = 3000)
+seurat <- ScaleData(seurat, vars.to.regress = "percent.mt")
+```
+
+---
+
+## 5. Run PCA
+
+```{r run-pca}
+seurat <- RunPCA(seurat, verbose = FALSE)
+```
+
+### 5a. Inspect PC loadings
+
+```{r pc-loadings, fig.width=10, fig.height=8}
+VizDimLoadings(seurat, dims = 1:3, reduction = "pca")
+```
+
+### 5b. PC heatmaps
+
+```{r pc-heatmaps, fig.width=10, fig.height=16}
+DimHeatmap(seurat, dims = 1:20, cells = 500, balanced = TRUE)
+```
+
+---
+
+## 6. Choose number of PCs — Elbow plot
+
+```{r elbow-plot, fig.cap="Elbow plot — choose PCs where the curve flattens"}
+ElbowPlot(seurat, ndims = 30) +
+  geom_vline(xintercept = N_PCS, linetype = "dashed", color = "red") +
+  annotate("text", x = N_PCS + 1, y = max(Stdev(seurat[["pca"]])) * 0.9,
+           label = paste("N_PCS =", N_PCS), hjust = 0, color = "red")
+```
+
+---
+
+## 7. Run UMAP
+
+```{r run-umap}
+seurat <- RunUMAP(seurat, dims = 1:N_PCS, verbose = FALSE)
+```
+
+```{r plot-umap, fig.cap="UMAP embedding"}
+DimPlot(seurat, reduction = "umap") + ggtitle("UMAP")
+```
+
+---
+
+## 8. Run t-SNE
+
+```{r run-tsne}
+seurat <- RunTSNE(seurat, dims = 1:N_PCS, verbose = FALSE)
+```
+
+```{r plot-tsne, fig.cap="t-SNE embedding"}
+DimPlot(seurat, reduction = "tsne") + ggtitle("t-SNE")
+```
+
+---
+
+## 9. Side-by-side comparison
+
+```{r umap-vs-tsne, fig.width=14, fig.height=5}
+p1 <- DimPlot(seurat, reduction = "umap") + ggtitle("UMAP")
+p2 <- DimPlot(seurat, reduction = "tsne") + ggtitle("t-SNE")
+p1 + p2
+```
+
+---
+
+## 10. Save the processed object
+
+```{r save-object}
+saveRDS(seurat, file = "Data/phase2_seurat_processed.rds")
+cat("Saved processed Seurat object to: Data/phase2_seurat_processed.rds\n")
+```
+
+---
+
+## 11. Decision Checkpoint 2
+
+**Decision:** Number of PCs and normalization method.
+
+**What I chose:**
+
+- PCs used for downstream steps: `r N_PCS`
+- Normalization: LogNormalize + FindVariableFeatures (3000 genes) + ScaleData (with `percent.mt` regression)
+
+**Why LogNormalize instead of SCTransform:**
+Both SCTransform v1 and v2 (`vst.flavor = "v2"` with `glmGamPoi`) crash with an OOM error at `sctransform::correct()`, which attempts to allocate a ~9.1 GB dense matrix. This is an architectural limitation of SCTransform for datasets of this size (~100K+ cells). The LogNormalize workflow is well-established in the literature and produces concordant results for clustering and differential expression.
+**#TODO:: LETS USE THE SCTRANSFORM IN THE SSH SERVER WHERE WE HAVE MORE RAM.WE WILL USE THE LOGNORMALIZE IN THE LOCAL MACHINE FOR THE DRAFT AND THEN SWITCH TO SCTRANSFORM IN THE FINAL VERSION.**
+**How many PCs:**
+The elbow plot shows where additional PCs contribute diminishing variance. The chosen cutoff balances capturing biological signal (enough PCs) against including noise (too many PCs).
+
+**What you still need to add:**
+Replace generic text with your interpretation of the actual elbow plot. State the exact PC cutoff and justify it.
+
+---
+
+## 12. Next step
+
+Continue with Phase 3:
+
+- `FindNeighbors()` and `FindClusters()`
+- Cell-type annotation with manual markers and SingleR
+- `FindAllMarkers()` and marker heatmap
