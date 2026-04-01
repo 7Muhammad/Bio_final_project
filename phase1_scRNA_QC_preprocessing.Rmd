@@ -64,8 +64,8 @@ MIN_CELLS_PER_GENE <- 3
 
 ## 3. Locate and load the 10X data
 
-This chunk tries to automatically find a valid 10X directory inside `/Data/`.
-A valid directory contains files such as:
+The 10X directory for GSE149689 is set explicitly below.
+A valid 10X directory must contain:
 
 - `matrix.mtx` or `matrix.mtx.gz`
 - `barcodes.tsv` or `barcodes.tsv.gz`
