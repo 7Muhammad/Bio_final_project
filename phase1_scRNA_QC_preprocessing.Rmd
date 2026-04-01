@@ -52,8 +52,10 @@ DATA_ROOT <- "Data/"
 PROJECT_NAME <- "COVID_PBMC"
 
 # QC thresholds (initial defaults; adjust after inspection)
-MIN_FEATURES <- 500
-MAX_FEATURES <- 6000
+MIN_FEATURES   <- 500
+MAX_FEATURES   <- 6000
+MIN_COUNTS     <- 1000   # remove cells with too few UMIs (likely empty droplets)
+MAX_COUNTS     <- 40000  # remove cells with too many UMIs (likely doublets)
 MAX_PERCENT_MT <- 20
 
 # Optional: minimum number of cells expressing a gene to keep the gene at object creation
@@ -216,12 +218,16 @@ qc_summary_before <- tibble(
   metric = c("cells_total",
              paste0("nFeature_RNA <= ", MIN_FEATURES),
              paste0("nFeature_RNA >= ", MAX_FEATURES),
-             paste0("percent.mt >= ", MAX_PERCENT_MT)),
+             paste0("nCount_RNA <= ",   MIN_COUNTS),
+             paste0("nCount_RNA >= ",   MAX_COUNTS),
+             paste0("percent.mt >= ",   MAX_PERCENT_MT)),
   value = c(
     ncol(seurat),
     sum(seurat$nFeature_RNA <= MIN_FEATURES),
     sum(seurat$nFeature_RNA >= MAX_FEATURES),
-    sum(seurat$percent.mt >= MAX_PERCENT_MT)
+    sum(seurat$nCount_RNA   <= MIN_COUNTS),
+    sum(seurat$nCount_RNA   >= MAX_COUNTS),
+    sum(seurat$percent.mt   >= MAX_PERCENT_MT)
   )
 )
 
@@ -237,7 +243,9 @@ seurat_filtered <- subset(
   seurat,
   subset = nFeature_RNA > MIN_FEATURES &
            nFeature_RNA < MAX_FEATURES &
-           percent.mt < MAX_PERCENT_MT
+           nCount_RNA   > MIN_COUNTS   &
+           nCount_RNA   < MAX_COUNTS   &
+           percent.mt   < MAX_PERCENT_MT
 )
 
 cat("Cells before filtering:", ncol(seurat), "\n")
