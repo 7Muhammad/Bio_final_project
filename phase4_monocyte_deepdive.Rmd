@@ -1,0 +1,421 @@
+---
+title: "Phase 4 – CD14+ Monocyte Deep-Dive & Core Claim"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Goal
+
+This document implements **Phase 4** of the project workflow:
+
+- Annotate samples with severity metadata from GEO/paper
+- Subset CD14+ monocytes
+- ISG and TNF/IL-1β module scoring
+- Co-activation analysis (scatter, thresholds)
+- Cell-level and donor-level severity comparisons
+- Differential expression in monocytes + volcano plot
+
+---
+
+## 1. Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(EnhancedVolcano)
+library(ggrepel)
+
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 10,
+  fig.height = 6
+)
+```
+
+---
+
+## 2. Load the annotated Seurat object from Phase 3
+
+```{r load-object}
+seurat <- readRDS("Data/phase3_seurat_annotated.rds")
+
+cat("Loaded Phase 3 Seurat object.\n")
+cat("  Cells:", ncol(seurat), "\n")
+cat("  Genes:", nrow(seurat), "\n")
+```
+
+---
+
+## 3. Add sample / severity metadata
+
+Barcode suffixes in GSE149689 encode sample identity (from GEO: Lee et al.,
+Sci Immunol 2020). Severity assignment (mild vs severe COVID) is based on the
+paper's Table S1.
+
+```{r add-metadata}
+# Extract barcode suffix → sample mapping from GEO
+suffix_to_sample <- c(
+  "1"  = "nCoV_1",  "2"  = "nCoV_2",  "3"  = "Flu_1",
+  "4"  = "Flu_2",   "5"  = "Normal_1","6"  = "Flu_3",
+  "7"  = "Flu_4",   "8"  = "Flu_5",   "9"  = "nCoV_3",
+  "10" = "nCoV_4",  "11" = "nCoV_5",  "12" = "nCoV_6",
+  "13" = "Normal_2","14" = "Normal_3","15" = "nCoV_7",
+  "16" = "nCoV_8",  "17" = "nCoV_9",  "18" = "nCoV_10",
+  "19" = "Normal_4","20" = "nCoV_11"
+)
+
+# Condition (broad)
+suffix_to_condition <- c(
+  "1"  = "COVID", "2"  = "COVID", "3"  = "Flu",
+  "4"  = "Flu",   "5"  = "Healthy","6"  = "Flu",
+  "7"  = "Flu",   "8"  = "Flu",   "9"  = "COVID",
+  "10" = "COVID", "11" = "COVID", "12" = "COVID",
+  "13" = "Healthy","14"= "Healthy","15"= "COVID",
+  "16" = "COVID", "17" = "COVID", "18" = "COVID",
+  "19" = "Healthy","20"= "COVID"
+)
+
+# Severity (from Lee et al. 2020, Table S1)
+# nCoV 1-7 = severe COVID; nCoV 8-11 = mild COVID
+suffix_to_severity <- c(
+  "1"  = "Severe",  "2"  = "Severe",  "3"  = "Flu",
+  "4"  = "Flu",     "5"  = "Healthy", "6"  = "Flu",
+  "7"  = "Flu",     "8"  = "Flu",     "9"  = "Severe",
+  "10" = "Severe",  "11" = "Severe",  "12" = "Severe",
+  "13" = "Healthy", "14" = "Healthy", "15" = "Severe",
+  "16" = "Mild",    "17" = "Mild",    "18" = "Mild",
+  "19" = "Healthy", "20" = "Mild"
+)
+
+# Assign to Seurat object
+barcodes <- colnames(seurat)
+suffixes <- sub(".*-", "", barcodes)
+
+seurat$sample    <- suffix_to_sample[suffixes]
+seurat$condition <- suffix_to_condition[suffixes]
+seurat$severity  <- suffix_to_severity[suffixes]
+seurat$donor     <- suffix_to_sample[suffixes]   # donor = sample in this dataset
+
+# Set severity as ordered factor
+seurat$severity <- factor(seurat$severity,
+                          levels = c("Healthy", "Mild", "Severe", "Flu"))
+
+cat("Metadata summary:\n")
+print(table(seurat$severity))
+cat("\nDonors per severity group:\n")
+print(tapply(seurat$donor, seurat$severity, function(x) length(unique(x))))
+```
+
+### 3a. UMAP split by severity
+
+```{r umap-severity, fig.width=16, fig.height=5}
+DimPlot(seurat, group.by = "singler_main", split.by = "severity",
+        reduction = "umap", label = FALSE, pt.size = 0.1) +
+  ggtitle("Cell types split by severity")
+```
+
+### 3b. Cell-type composition by severity
+
+```{r composition-barplot, fig.width=10, fig.height=6}
+comp <- seurat@meta.data %>%
+  count(severity, singler_main) %>%
+  group_by(severity) %>%
+  mutate(pct = n / sum(n) * 100)
+
+ggplot(comp, aes(x = severity, y = pct, fill = singler_main)) +
+  geom_col(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "Severity", y = "Proportion", fill = "Cell type",
+       title = "Cell-type composition by severity group") +
+  theme_minimal()
+```
+
+---
+
+## 4. Subset CD14+ monocytes
+
+```{r subset-monocytes}
+# Identify monocyte labels from SingleR
+mono_labels <- grep("Mono", unique(seurat$singler_main), value = TRUE, ignore.case = TRUE)
+cat("Monocyte labels found:", paste(mono_labels, collapse = ", "), "\n")
+
+# If no "Mono" label, try "Monocyte"
+if (length(mono_labels) == 0) {
+  mono_labels <- grep("Monocyte", unique(seurat$singler_main), value = TRUE, ignore.case = TRUE)
+  cat("Trying 'Monocyte' pattern:", paste(mono_labels, collapse = ", "), "\n")
+}
+
+mono <- subset(seurat, singler_main %in% mono_labels)
+cat("Monocyte subset:\n")
+cat("  Cells:", ncol(mono), "\n")
+cat("  Severity distribution:\n")
+print(table(mono$severity))
+```
+
+---
+
+## 5. ISG module scoring
+
+```{r isg-module}
+isg_genes <- c("ISG15", "IFIT1", "MX1", "OAS1", "IFI44L")
+
+# Check which genes are present
+cat("ISG genes present:",
+    paste(isg_genes[isg_genes %in% rownames(mono)], collapse = ", "), "\n")
+
+mono <- AddModuleScore(mono,
+                       features = list(isg_genes),
+                       name = "ISG")
+# Rename the auto-generated column (ISG1) to ISG_score
+mono$ISG_score <- mono$ISG1
+```
+
+---
+
+## 6. TNF/IL-1β module scoring
+
+```{r tnf-il1-module}
+tnf_il1_genes <- c("TNF", "IL1B", "CCL3", "CCL4", "CXCL8")
+
+cat("TNF/IL-1 genes present:",
+    paste(tnf_il1_genes[tnf_il1_genes %in% rownames(mono)], collapse = ", "), "\n")
+
+mono <- AddModuleScore(mono,
+                       features = list(tnf_il1_genes),
+                       name = "TNF_IL1")
+mono$TNF_IL1_score <- mono$TNF_IL11
+```
+
+---
+
+## 7. Co-activation scatter plot
+
+```{r co-activation-scatter, fig.width=12, fig.height=8}
+df <- mono@meta.data %>%
+  select(ISG_score, TNF_IL1_score, severity, donor)
+
+ggplot(df, aes(x = ISG_score, y = TNF_IL1_score, color = severity)) +
+  geom_point(size = 0.3, alpha = 0.4) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
+  scale_color_manual(values = c("Healthy" = "grey60", "Mild" = "steelblue",
+                                "Severe" = "firebrick", "Flu" = "darkorange")) +
+  labs(x = "ISG module score", y = "TNF/IL-1β module score",
+       title = "ISG vs TNF/IL-1β co-activation in monocytes",
+       color = "Severity") +
+  theme_minimal() +
+  facet_wrap(~ severity, ncol = 2)
+```
+
+---
+
+## 8. Define co-activated state
+
+A cell is "co-activated" if **both** its ISG score and TNF/IL-1β score are
+above zero (i.e., above the background expectation from `AddModuleScore`).
+
+```{r define-coactivated}
+mono$coactivated <- (mono$ISG_score > 0) & (mono$TNF_IL1_score > 0)
+
+cat("Co-activated cells per severity:\n")
+coact_summary <- mono@meta.data %>%
+  group_by(severity) %>%
+  summarise(
+    total      = n(),
+    coactivated = sum(coactivated),
+    pct        = round(100 * coactivated / total, 1),
+    .groups    = "drop"
+  )
+print(coact_summary)
+```
+
+---
+
+## 9. Cell-level severity comparison — Violin plots
+
+```{r cell-violin, fig.width=14, fig.height=5}
+p1 <- VlnPlot(mono, features = "ISG_score", group.by = "severity",
+               pt.size = 0) + ggtitle("ISG score by severity") + NoLegend()
+p2 <- VlnPlot(mono, features = "TNF_IL1_score", group.by = "severity",
+               pt.size = 0) + ggtitle("TNF/IL-1β score by severity") + NoLegend()
+p1 + p2
+```
+
+---
+
+## 10. Donor-level aggregation
+
+```{r donor-aggregation}
+donor_summary <- mono@meta.data %>%
+  group_by(donor, severity) %>%
+  summarise(
+    n_cells          = n(),
+    mean_ISG         = mean(ISG_score),
+    mean_TNF_IL1     = mean(TNF_IL1_score),
+    pct_coactivated  = 100 * mean(coactivated),
+    .groups = "drop"
+  )
+
+knitr::kable(donor_summary, digits = 3,
+             caption = "Donor-level monocyte module-score summary")
+```
+
+---
+
+## 11. Donor-level statistical tests
+
+```{r donor-stats}
+# Subset to COVID patients only for mild vs severe comparison
+covid_donors <- donor_summary %>% filter(severity %in% c("Mild", "Severe"))
+
+# Wilcoxon rank-sum tests
+cat("=== Wilcoxon rank-sum: Mild vs Severe COVID ===\n\n")
+
+cat("ISG score (donor-level mean):\n")
+w_isg <- wilcox.test(mean_ISG ~ severity, data = covid_donors)
+print(w_isg)
+
+cat("\nTNF/IL-1 score (donor-level mean):\n")
+w_tnf <- wilcox.test(mean_TNF_IL1 ~ severity, data = covid_donors)
+print(w_tnf)
+
+cat("\n% Co-activated (donor-level):\n")
+w_coact <- wilcox.test(pct_coactivated ~ severity, data = covid_donors)
+print(w_coact)
+
+# Kruskal-Wallis across all groups (Healthy, Mild, Severe, Flu)
+cat("\n=== Kruskal-Wallis across all severity groups ===\n")
+kw <- kruskal.test(pct_coactivated ~ severity, data = donor_summary)
+print(kw)
+```
+
+---
+
+## 12. Donor-level boxplots
+
+```{r donor-boxplots, fig.width=14, fig.height=5}
+p1 <- ggplot(donor_summary, aes(x = severity, y = mean_ISG, fill = severity)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 2) +
+  scale_fill_manual(values = c("Healthy" = "grey70", "Mild" = "steelblue",
+                               "Severe" = "firebrick", "Flu" = "darkorange")) +
+  labs(y = "Mean ISG score", title = "ISG score per donor") +
+  theme_minimal() + NoLegend()
+
+p2 <- ggplot(donor_summary, aes(x = severity, y = mean_TNF_IL1, fill = severity)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 2) +
+  scale_fill_manual(values = c("Healthy" = "grey70", "Mild" = "steelblue",
+                               "Severe" = "firebrick", "Flu" = "darkorange")) +
+  labs(y = "Mean TNF/IL-1β score", title = "TNF/IL-1β score per donor") +
+  theme_minimal() + NoLegend()
+
+p3 <- ggplot(donor_summary, aes(x = severity, y = pct_coactivated, fill = severity)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(width = 0.15, size = 2) +
+  scale_fill_manual(values = c("Healthy" = "grey70", "Mild" = "steelblue",
+                               "Severe" = "firebrick", "Flu" = "darkorange")) +
+  labs(y = "% co-activated monocytes", title = "Co-activation per donor") +
+  theme_minimal() + NoLegend()
+
+p1 + p2 + p3
+```
+
+---
+
+## 13. Cell-type-specific differential expression (monocytes)
+
+```{r mono-de}
+# Compare severe COVID monocytes vs healthy monocytes
+mono$severity_ident <- mono$severity
+Idents(mono) <- "severity_ident"
+
+mono_de <- FindMarkers(
+  mono,
+  ident.1 = "Severe",
+  ident.2 = "Healthy",
+  min.pct = 0.1,
+  logfc.threshold = 0.25
+)
+
+cat("DE genes (Severe vs Healthy monocytes):", nrow(mono_de), "\n")
+cat("\nTop 20 upregulated:\n")
+print(head(mono_de[order(-mono_de$avg_log2FC), ], 20))
+cat("\nTop 20 downregulated:\n")
+print(head(mono_de[order(mono_de$avg_log2FC), ], 20))
+```
+
+---
+
+## 14. Volcano plot
+
+```{r volcano, fig.width=10, fig.height=8}
+EnhancedVolcano(
+  mono_de,
+  lab        = rownames(mono_de),
+  x          = "avg_log2FC",
+  y          = "p_val_adj",
+  pCutoff    = 0.05,
+  FCcutoff   = 1.0,
+  title      = "Severe vs Healthy COVID — CD14+ Monocytes",
+  subtitle   = "Differential expression",
+  pointSize  = 1.5,
+  labSize    = 3.5
+)
+```
+
+---
+
+## 15. Save results
+
+```{r save-results}
+# Save monocyte subset with scores
+saveRDS(mono, file = "Data/phase4_monocytes.rds")
+
+# Save DE results
+write.csv(mono_de, file = "Data/phase4_mono_de_severe_vs_healthy.csv")
+
+# Save donor summary
+write.csv(donor_summary, file = "Data/phase4_donor_summary.csv",
+          row.names = FALSE)
+
+# Save the full Seurat with severity metadata for downstream phases
+saveRDS(seurat, file = "Data/phase4_seurat_with_severity.rds")
+
+cat("Saved:\n")
+cat("  Data/phase4_monocytes.rds\n")
+cat("  Data/phase4_mono_de_severe_vs_healthy.csv\n")
+cat("  Data/phase4_donor_summary.csv\n")
+cat("  Data/phase4_seurat_with_severity.rds\n")
+```
+
+---
+
+## 16. Predict-Before-You-Run 1
+
+**Prediction:** "I expect ISG + TNF/IL-1β co-activation frequency to be higher
+in severe COVID-19 monocytes, because severe disease is characterized by both
+interferon dysregulation and monocyte-driven cytokine storm (as described by
+Lee et al., Sci Immunol 2020)."
+
+**Outcome:** *(Fill in after running — does the data support the prediction?)*
+
+- % co-activated in Severe: `r coact_summary$pct[coact_summary$severity == "Severe"]`%
+- % co-activated in Mild: `r coact_summary$pct[coact_summary$severity == "Mild"]`%
+- % co-activated in Healthy: `r coact_summary$pct[coact_summary$severity == "Healthy"]`%
+- Wilcoxon p-value (Severe vs Mild, donor-level): `r w_coact$p.value`
+
+---
+
+## 17. Next step
+
+Continue with Phase 5 (Replication on GSE150861):
+
+- Independent validation dataset
+- Same QC → normalize → cluster → annotate pipeline
+- Apply identical ISG and TNF/IL-1β module scores
+- Confirm co-activated monocyte state in independent cohort

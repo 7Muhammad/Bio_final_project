@@ -1,5 +1,5 @@
 ---
-title: "Phase 3 - Clustering & Cell-Type Annotation"
+title: "Phase 3 – Clustering & Cell-Type Annotation"
 author: ""
 date: "`r Sys.Date()`"
 output: html_document
@@ -8,15 +8,11 @@ output: html_document
 ## Goal
 
 This document implements **Phase 3** of the project workflow:
-
-- find neighbors and clusters using the PCA embedding from Phase 2
-- compare clustering resolutions (0.1, 0.5, 1.0) before committing to one
-- visualize clusters on UMAP
-- annotate cell types using canonical marker genes (manual annotation)
-- run automated annotation with SingleR (BlueprintEncodeData reference)
-- find cluster marker genes and plot a summary heatmap
-- load and attach sample-level severity metadata from GEO
-- preview severity composition across annotated cell types
+  
+- Graph-based clustering at multiple resolutions
+- Manual marker gene inspection
+- Automated annotation with SingleR
+- Differential marker discovery with `FindAllMarkers()`
 
 ---
 
@@ -24,22 +20,20 @@ This document implements **Phase 3** of the project workflow:
 
 ```{r setup, message=FALSE, warning=FALSE}
 library(Seurat)
-library(SingleR)
-library(celldex)
-library(SingleCellExperiment)
-library(dittoSeq)
 library(tidyverse)
 library(patchwork)
+library(SingleR)
+library(celldex)
+library(dittoSeq)
+library(pheatmap)
 
 knitr::opts_chunk$set(
   echo    = TRUE,
   warning = FALSE,
   message = FALSE,
-  fig.width  = 8,
-  fig.height = 5
+  fig.width  = 10,
+  fig.height = 6
 )
-
-set.seed(42)
 ```
 
 ---
@@ -49,10 +43,10 @@ set.seed(42)
 ```{r load-object}
 seurat <- readRDS("Data/phase2_seurat_processed.rds")
 
-cat("Loaded processed Seurat object.\n")
+cat("Loaded Phase 2 Seurat object.\n")
 cat("  Cells:", ncol(seurat), "\n")
 cat("  Genes:", nrow(seurat), "\n")
-cat("  Reductions available:", paste(names(seurat@reductions), collapse = ", "), "\n")
+cat("  Default assay:", DefaultAssay(seurat), "\n")
 ```
 
 ---
@@ -60,178 +54,147 @@ cat("  Reductions available:", paste(names(seurat@reductions), collapse = ", "),
 ## 3. User-defined parameters
 
 ```{r parameters}
-# Must match the value used in Phase 2
+# Number of PCs (must match Phase 2)
 N_PCS <- 20
 
-# Clustering resolution to use for downstream analysis
-# Inspect the resolution comparison below before finalising this value
-CHOSEN_RESOLUTION <- 0.5
+# Clustering resolutions to compare
+RESOLUTIONS <- c(0.1, 0.3, 0.5, 0.8, 1.0)
+
+# Final resolution to use downstream (adjust after inspection)
+FINAL_RES <- 0.5
 ```
 
 ---
 
-## 4. Find neighborhood graph
+## 4. Find Neighbors
+
+Build the shared-nearest-neighbor (SNN) graph on the PCA embedding.
 
 ```{r find-neighbors}
 seurat <- FindNeighbors(seurat, dims = 1:N_PCS, verbose = FALSE)
-cat("Neighbor graph built using dims 1:", N_PCS, "\n")
 ```
 
 ---
 
-## 5. Resolution comparison
-
-Try three resolutions and record how many clusters each produces.
-Use this output — together with the UMAP plots below — to justify `CHOSEN_RESOLUTION`.
-
-```{r resolution-comparison}
-resolutions <- c(0.1, 0.5, 1.0)
-
-res_summary <- map_dfr(resolutions, function(r) {
-  tmp <- FindClusters(seurat, resolution = r, verbose = FALSE)
-  tibble(
-    resolution    = r,
-    n_clusters    = length(unique(tmp$seurat_clusters)),
-    cluster_sizes = paste(sort(table(tmp$seurat_clusters), decreasing = TRUE), collapse = ", ")
-  )
-})
-
-res_summary
-```
-
-```{r resolution-umap, fig.width=14, fig.height=4, fig.cap="UMAP at three resolutions"}
-plots <- map(resolutions, function(r) {
-  tmp <- FindClusters(seurat, resolution = r, verbose = FALSE)
-  DimPlot(tmp, reduction = "umap", label = TRUE, pt.size = 0.3) +
-    ggtitle(paste0("Resolution = ", r,
-                   "  (", length(unique(tmp$seurat_clusters)), " clusters)")) +
-    NoLegend()
-})
-
-wrap_plots(plots, nrow = 1)
-```
-
----
-
-## 6. Find clusters with chosen resolution
+## 5. Find Clusters at multiple resolutions
 
 ```{r find-clusters}
-seurat <- FindClusters(seurat, resolution = CHOSEN_RESOLUTION, verbose = FALSE)
+for (res in RESOLUTIONS) {
+  seurat <- FindClusters(seurat, resolution = res, verbose = FALSE)
+}
 
-cat("Clusters found at resolution", CHOSEN_RESOLUTION, ":\n")
-table(seurat$seurat_clusters)
+# Show cluster counts per resolution
+res_summary <- data.frame(
+  Resolution = RESOLUTIONS,
+  Clusters   = sapply(RESOLUTIONS, function(r) {
+    length(unique(seurat@meta.data[[paste0("RNA_snn_res.", r)]]))
+  })
+)
+knitr::kable(res_summary, caption = "Number of clusters at each resolution")
 ```
 
-```{r umap-by-cluster, fig.cap="UMAP coloured by cluster"}
+---
+
+## 6. Compare resolutions on UMAP
+
+```{r compare-resolutions, fig.width=16, fig.height=12}
+plots <- lapply(RESOLUTIONS, function(r) {
+  col <- paste0("RNA_snn_res.", r)
+  DimPlot(seurat, group.by = col, reduction = "umap", label = TRUE, label.size = 3) +
+    ggtitle(paste0("res = ", r)) +
+    NoLegend()
+})
+wrap_plots(plots, ncol = 3)
+```
+
+---
+
+## 7. Set final clustering resolution
+
+```{r set-final-resolution}
+Idents(seurat) <- paste0("RNA_snn_res.", FINAL_RES)
+cat("Using resolution:", FINAL_RES, "\n")
+cat("Number of clusters:", length(levels(Idents(seurat))), "\n")
+```
+
+### 7a. UMAP by cluster (final)
+
+```{r umap-clusters, fig.width=10, fig.height=7}
 DimPlot(seurat, reduction = "umap", label = TRUE, pt.size = 0.3) +
-  ggtitle(paste0("Clusters (resolution = ", CHOSEN_RESOLUTION, ")")) +
-  NoLegend()
+  ggtitle(paste0("Clusters (res = ", FINAL_RES, ")"))
 ```
 
-```{r tsne-by-cluster, fig.cap="t-SNE coloured by cluster"}
-DimPlot(seurat, reduction = "tsne", label = TRUE, pt.size = 0.3) +
-  ggtitle(paste0("Clusters (resolution = ", CHOSEN_RESOLUTION, ")")) +
-  NoLegend()
-```
+### 7b. Compare t-SNE vs UMAP
 
-```{r umap-tsne-side, fig.width=13, fig.height=5, fig.cap="UMAP vs t-SNE side-by-side"}
-p1 <- DimPlot(seurat, reduction = "umap", label = TRUE, pt.size = 0.3) +
-  ggtitle("UMAP") + NoLegend()
-p2 <- DimPlot(seurat, reduction = "tsne", label = TRUE, pt.size = 0.3) +
-  ggtitle("t-SNE") + NoLegend()
+```{r tsne-vs-umap, fig.width=16, fig.height=6}
+p1 <- DimPlot(seurat, reduction = "umap", label = TRUE) + ggtitle("UMAP") + NoLegend()
+p2 <- DimPlot(seurat, reduction = "tsne", label = TRUE) + ggtitle("t-SNE") + NoLegend()
 p1 + p2
 ```
 
 ---
 
-## 7. Manual marker gene inspection
+## 8. Manual marker gene inspection
 
-### 7a. Classical monocytes (CD14+ / LYZ)
+### 8a. Monocyte markers
 
 ```{r markers-monocytes, fig.width=12, fig.height=4}
-FeaturePlot(
-  seurat, reduction = "umap",
-  features = c("CD14", "LYZ", "FCGR3A"),
-  ncol = 3, pt.size = 0.2
-)
+FeaturePlot(seurat, features = c("CD14", "LYZ", "FCGR3A"),
+            reduction = "umap", ncol = 3)
 ```
 
-### 7b. T cells
+### 8b. T-cell markers
 
 ```{r markers-tcells, fig.width=16, fig.height=4}
-FeaturePlot(
-  seurat, reduction = "umap",
-  features = c("CD3D", "CD3E", "CD4", "CD8A"),
-  ncol = 4, pt.size = 0.2
-)
+FeaturePlot(seurat, features = c("CD3D", "CD3E", "CD4", "CD8A"),
+            reduction = "umap", ncol = 4)
 ```
 
-### 7c. B cells
+### 8c. B-cell markers
 
 ```{r markers-bcells, fig.width=8, fig.height=4}
-FeaturePlot(
-  seurat, reduction = "umap",
-  features = c("MS4A1", "CD79A"),
-  ncol = 2, pt.size = 0.2
-)
+FeaturePlot(seurat, features = c("MS4A1", "CD79A"),
+            reduction = "umap", ncol = 2)
 ```
 
-### 7d. NK cells
+### 8d. NK-cell markers
 
 ```{r markers-nk, fig.width=8, fig.height=4}
-FeaturePlot(
-  seurat, reduction = "umap",
-  features = c("NKG7", "GNLY"),
-  ncol = 2, pt.size = 0.2
-)
+FeaturePlot(seurat, features = c("NKG7", "GNLY"),
+            reduction = "umap", ncol = 2)
 ```
 
-### 7e. Plasmacytoid dendritic cells (pDC) and conventional DCs
+### 8e. Dot plot of canonical markers
 
-```{r markers-dc, fig.width=8, fig.height=4}
-FeaturePlot(
-  seurat, reduction = "umap",
-  features = c("CLEC4C", "FCER1A"),
-  ncol = 2, pt.size = 0.2
-)
-```
-
-### 7f. Summary dot plot — canonical PBMC markers
-
-```{r dotplot-markers, fig.width=12, fig.height=5}
+```{r dotplot-markers, fig.width=12, fig.height=6}
 canonical_markers <- c(
-  "CD14", "LYZ", "FCGR3A",   # Monocytes
-  "CD3D", "CD4", "CD8A",      # T cells
-  "MS4A1", "CD79A",            # B cells
-  "NKG7", "GNLY",              # NK cells
-  "CLEC4C", "FCER1A"           # DCs / pDCs
+  "CD14", "LYZ", "FCGR3A",       # Monocytes
+  "CD3D", "CD3E", "CD4", "CD8A", # T cells
+  "MS4A1", "CD79A",               # B cells
+  "NKG7", "GNLY",                 # NK cells
+  "FCER1A", "CST3",               # Dendritic cells
+  "PPBP"                           # Platelets / Megakaryocytes
 )
-
 DotPlot(seurat, features = canonical_markers) +
   RotatedAxis() +
-  ggtitle("Canonical PBMC marker expression per cluster")
+  ggtitle("Canonical marker expression by cluster")
 ```
 
 ---
 
-## 8. Automated annotation — SingleR
+## 9. Automated annotation with SingleR
 
-SingleR compares each cell's transcriptome to a reference dataset and assigns
-a cell-type label. We use the Blueprint/ENCODE reference, which covers major
-immune cell types including monocytes, T cells, B cells, and NK cells.
-
-```{r singler-reference}
+```{r singler-annotation}
+# Use BlueprintEncodeData as reference
 singler_ref <- BlueprintEncodeData()
-cat("Reference cell types available:\n")
-print(table(singler_ref$label.main))
-```
 
-```{r run-singler}
-# Extract log-normalised counts as a matrix for SingleR
-sce_test <- as.SingleCellExperiment(seurat)
+# Get normalized expression matrix
+# (SingleR expects log-normalized counts)
+expr_matrix <- GetAssayData(seurat, layer = "data")
 
+# Run SingleR (main labels)
 singler_results <- SingleR(
-  test   = sce_test,
+  test   = expr_matrix,
   ref    = singler_ref,
   labels = singler_ref$label.main
 )
@@ -241,265 +204,109 @@ cat("Label distribution:\n")
 print(sort(table(singler_results$labels), decreasing = TRUE))
 ```
 
-```{r singler-score-heatmap, fig.width=12, fig.height=6, fig.cap="SingleR per-cell score heatmap"}
+### 9a. SingleR score heatmap
+
+```{r singler-heatmap, fig.width=12, fig.height=8}
 plotScoreHeatmap(singler_results)
 ```
 
-```{r singler-delta-distribution, fig.cap="Delta score distribution — cells with low delta are ambiguous"}
-plotDeltaDistribution(singler_results, ncol = 4)
-```
-
----
-
-## 9. Add SingleR labels to Seurat and visualise
+### 9b. Add SingleR labels to Seurat object
 
 ```{r add-singler-labels}
-seurat$singler_label <- singler_results$labels
+seurat$singler_main <- singler_results$labels
 
-cat("Cell type counts (SingleR):\n")
-print(sort(table(seurat$singler_label), decreasing = TRUE))
+# Cross-tabulate clusters vs SingleR labels
+ct <- table(Cluster = Idents(seurat), CellType = seurat$singler_main)
+knitr::kable(ct, caption = "Cluster × SingleR cell-type cross-tabulation")
 ```
 
-```{r umap-singler, fig.width=10, fig.height=6, fig.cap="UMAP coloured by SingleR cell-type label"}
-DimPlot(seurat, reduction = "umap", group.by = "singler_label",
-        label = TRUE, repel = TRUE, pt.size = 0.3) +
-  ggtitle("Cell types (SingleR — Blueprint/ENCODE reference)") +
-  NoLegend()
+### 9c. UMAP coloured by SingleR annotation
+
+```{r umap-singler, fig.width=12, fig.height=7}
+DimPlot(seurat, group.by = "singler_main", reduction = "umap",
+        label = TRUE, label.size = 3, repel = TRUE) +
+  ggtitle("SingleR cell-type annotation")
 ```
 
-```{r ditto-umap, fig.width=10, fig.height=6, fig.cap="dittoDimPlot: UMAP coloured by cell type"}
-dittoDimPlot(seurat, var = "singler_label", reduction.use = "umap", size = 0.4)
-```
+### 9d. dittoSeq UMAP
 
-### Cluster-to-cell-type mapping
-
-```{r cluster-celltype-table}
-cluster_ct_table <- as.data.frame(
-  table(Cluster = seurat$seurat_clusters, CellType = seurat$singler_label)
-) %>%
-  filter(Freq > 0) %>%
-  arrange(Cluster, desc(Freq))
-
-cluster_ct_table
+```{r ditto-umap, fig.width=12, fig.height=7}
+dittoDimPlot(seurat, var = "singler_main", reduction.use = "umap")
 ```
 
 ---
 
-## 10. Find all cluster marker genes
+## 10. Find all markers (cluster-defining genes)
 
 ```{r find-all-markers}
-# Use RNA assay for FindAllMarkers
-DefaultAssay(seurat) <- "RNA"
-
 all_markers <- FindAllMarkers(
   seurat,
-  min.pct        = 0.25,
-  logfc.threshold = 0.25,
-  only.pos        = TRUE,
-  verbose         = FALSE
+  only.pos      = TRUE,
+  min.pct       = 0.25,
+  logfc.threshold = 0.5
 )
 
-cat("Total significant markers found:", nrow(all_markers), "\n")
-head(all_markers, 10)
-```
+cat("Total markers found:", nrow(all_markers), "\n")
 
-```{r top-markers-per-cluster}
-top5_markers <- all_markers %>%
+# Show top 5 per cluster
+top5 <- all_markers %>%
   group_by(cluster) %>%
-  slice_max(order_by = avg_log2FC, n = 5) %>%
-  ungroup()
+  slice_max(order_by = avg_log2FC, n = 5)
 
-cat("Top 5 marker genes per cluster:\n")
-print(top5_markers %>% select(cluster, gene, avg_log2FC, p_val_adj))
+knitr::kable(top5, caption = "Top 5 markers per cluster (by log2 FC)")
 ```
 
-```{r marker-heatmap, fig.width=12, fig.height=10, fig.cap="Heatmap: top 5 marker genes per cluster"}
-DoHeatmap(
-  seurat,
-  features = top5_markers$gene,
-  size     = 3
-) + NoLegend()
-```
+### 10a. Marker Heatmap
 
-```{r save-markers}
-write.csv(all_markers, file = "Data/phase3_all_cluster_markers.csv", row.names = FALSE)
-cat("Saved all cluster markers to: Data/phase3_all_cluster_markers.csv\n")
+```{r marker-heatmap, fig.width=14, fig.height=10}
+top5_genes <- top5 %>% pull(gene) %>% unique()
+DoHeatmap(seurat, features = top5_genes, size = 3) +
+  ggtitle("Top 5 markers per cluster")
 ```
 
 ---
 
-## 11. Load and attach sample severity metadata
-
-GSE149689 contains PBMCs from donors spanning healthy, mild, and severe COVID-19.
-Because the data was loaded from a single merged 10X matrix, severity labels must
-be joined back from the GEO series metadata.
-
-The chunk below uses `GEOquery` to download the series matrix and parse severity
-from the sample characteristics. It then maps each cell barcode to its donor
-and severity group.
-
-> **Note:** If the series matrix download fails, the metadata can be constructed
-> manually using the supplementary table from the original paper
-> (Arunachalam et al. 2020, *Science* 369:1210–1220).
-
-```{r load-geo-metadata}
-if (!requireNamespace("GEOquery", quietly = TRUE)) {
-  BiocManager::install("GEOquery", ask = FALSE)
-}
-library(GEOquery)
-
-# Download the GSE149689 series matrix (cached locally after first run)
-gse <- getGEO("GSE149689", GSEMatrix = TRUE, getGPL = FALSE)
-pheno <- pData(gse[[1]])
-
-# Extract the columns we need
-metadata_geo <- pheno %>%
-  select(
-    geo_accession,
-    title,
-    starts_with("characteristics_ch1")
-  )
-
-cat("GEO metadata columns:\n")
-print(colnames(metadata_geo))
-cat("\nFirst few rows:\n")
-print(head(metadata_geo))
-```
-
-```{r parse-severity}
-# Parse severity from the characteristics columns.
-# Adjust the column name / regex below if the GEO record uses different field names.
-metadata_geo <- metadata_geo %>%
-  mutate(
-    severity = case_when(
-      str_detect(title, regex("healthy|control", ignore_case = TRUE)) ~ "Healthy",
-      str_detect(title, regex("mild|moderate",   ignore_case = TRUE)) ~ "Mild_Moderate",
-      str_detect(title, regex("severe|icu",       ignore_case = TRUE)) ~ "Severe_ICU",
-      TRUE ~ "Unknown"
-    ),
-    donor_id = geo_accession
-  ) %>%
-  select(geo_accession, donor_id, severity)
-
-cat("Severity distribution in GEO metadata:\n")
-print(table(metadata_geo$severity))
-```
-
-```{r attach-metadata-to-seurat}
-# The barcodes in the merged 10X matrix are expected to carry a sample prefix,
-# e.g. "SAMPLE_BARCODE-1". Extract the prefix to link each cell to its donor.
-#
-# Inspect the first few barcodes to confirm the separator used in this dataset:
-cat("First 6 cell barcodes:\n")
-print(head(colnames(seurat)))
-
-# --- Adjust sep below if barcodes use a different separator ---
-cell_meta <- tibble(barcode = colnames(seurat)) %>%
-  mutate(
-    # Extract everything before the first underscore as the sample identifier
-    sample_prefix = str_extract(barcode, "^[^_]+")
-  )
-
-cat("\nUnique sample prefixes found in barcodes:\n")
-print(unique(cell_meta$sample_prefix))
-
-# If the prefix matches GEO accession numbers (GSMxxxxxxx), join directly.
-# Otherwise you will need to manually create the mapping below.
-seurat$donor_id  <- cell_meta$sample_prefix
-seurat$severity  <- metadata_geo$severity[
-  match(cell_meta$sample_prefix, metadata_geo$geo_accession)
-]
-
-cat("\nSeverity distribution in Seurat object:\n")
-print(table(seurat$severity, useNA = "ifany"))
-```
-
-```{r umap-by-severity, fig.width=10, fig.height=6, fig.cap="UMAP coloured by disease severity"}
-DimPlot(
-  seurat,
-  reduction = "umap",
-  group.by  = "severity",
-  pt.size   = 0.3,
-  cols      = c("Healthy" = "#2166ac", "Mild_Moderate" = "#f4a582",
-                "Severe_ICU" = "#d6604d", "Unknown" = "grey80")
-) + ggtitle("Disease severity per cell")
-```
-
----
-
-## 12. Cell-type composition by severity (preview for Phase 4)
-
-```{r composition-table}
-composition <- as.data.frame(
-  table(CellType = seurat$singler_label, Severity = seurat$severity)
-) %>%
-  group_by(Severity) %>%
-  mutate(Proportion = Freq / sum(Freq)) %>%
-  ungroup()
-
-composition
-```
-
-```{r composition-barplot, fig.width=10, fig.height=5, fig.cap="Cell-type composition per severity group"}
-ggplot(composition, aes(x = Severity, y = Proportion, fill = CellType)) +
-  geom_col(position = "stack") +
-  scale_y_continuous(labels = scales::percent) +
-  labs(title = "PBMC cell-type composition by severity",
-       x = "Severity group", y = "Proportion of cells") +
-  theme_classic() +
-  theme(axis.text.x = element_text(angle = 25, hjust = 1))
-```
-
----
-
-## 13. Save the annotated object
+## 11. Save the annotated object
 
 ```{r save-object}
 saveRDS(seurat, file = "Data/phase3_seurat_annotated.rds")
+
+# Also save the markers table for later use
+write.csv(all_markers, file = "Data/phase3_all_markers.csv", row.names = FALSE)
+
 cat("Saved annotated Seurat object to: Data/phase3_seurat_annotated.rds\n")
+cat("Saved marker table to: Data/phase3_all_markers.csv\n")
 ```
 
 ---
 
-## 14. Decision Checkpoint 3
+## 12. Decision Checkpoint 3
 
-**Decision 3a — Clustering resolution**
+**Decision:** Clustering resolution.
 
-| Resolution | Clusters | Assessment |
-|------------|----------|------------|
-| 0.1        | (fill in after running) | Under-clusters — merges biologically distinct types |
-| 0.5        | (fill in after running) | Balanced — used for downstream analysis |
-| 1.0        | (fill in after running) | Over-clusters — splits within an expected cell type |
+**What I chose:**
 
-**What I chose:** `CHOSEN_RESOLUTION = `r CHOSEN_RESOLUTION``
+- Resolution: `r FINAL_RES`
+- Number of clusters at this resolution: `r length(levels(Idents(seurat)))`
 
-**Why:** *(Replace with your own reasoning after inspecting the resolution UMAP plots.
-Typical PBMC datasets at this depth show 8–12 biologically meaningful clusters at
-resolution 0.5, consistent with major cell lineages: CD14+ monocytes, CD16+ monocytes,
-CD4 T cells, CD8 T cells, NK cells, B cells, pDCs, and dendritic cells.)*
-
-**Alternatives considered:**
-- Resolution 0.1: fewer clusters, risks merging CD14+ and CD16+ monocytes which are biologically distinct and critical for this project's core question.
-- Resolution 1.0: produces small satellite clusters that do not correspond to established PBMC lineages.
-- MAD-based adaptive resolution selection: not implemented here but available via the `scran` package.
-
----
-
-**Decision 3b — SingleR reference choice**
-
-**What I used:** `BlueprintEncodeData()` (Blueprint/ENCODE bulk RNA reference)
-
-**Why:** Covers all major PBMC lineages; widely used in published COVID-19 PBMC studies; computationally faster than fine-grained references.
-
-**Alternatives:**
-- `HumanPrimaryCellAtlasData()` — broader cell type coverage, may label monocytes more granularly.
-- `MonacoImmuneData()` — specifically designed for blood immune cells with finer T-cell and monocyte subtypes; may be preferable for this project given the monocyte-focused analysis in Phase 4.
-- Manual-only annotation: more labour-intensive but gives full control.
-
----
+**Why this resolution:**
+Compared resolutions `r paste(RESOLUTIONS, collapse = ", ")` (see UMAP grid above).
+The chosen resolution balances granularity (enough clusters to separate biologically
+distinct populations) against over-splitting (too many clusters with no clear markers).
 
 **What you still need to add:**
-- Fill in the cluster count table above with actual values from your run.
-- Replace the resolution justification with interpretation of your specific plots.
-- Confirm the barcode prefix separator is correct for this dataset and that severity labels are assigned as expected.
-- Add your name to the author field.
+
+- Replace this text with your interpretation of the resolution comparison.
+- Note which clusters correspond to which cell types (based on markers + SingleR).
+- Comment on any discrepancies between manual markers and SingleR labels.
+
+---
+
+## 13. Next step
+
+Continue with Phase 4 (CD14+ Monocyte Deep-Dive):
+
+- Subset CD14+ monocytes
+- ISG and TNF/IL-1 module scoring
+- Co-activation analysis by disease severity
+- Donor-level statistical tests
