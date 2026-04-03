@@ -30,6 +30,9 @@ knitr::opts_chunk$set(
   fig.width = 8,
   fig.height = 5
 )
+
+# Create plots output folder
+dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 ```
 
 ---
@@ -51,6 +54,9 @@ cat("  Genes:", nrow(seurat), "\n")
 ```{r parameters}
 # Number of PCs to use for UMAP / t-SNE (adjust after inspecting elbow plot)
 N_PCS <- 20
+
+# Folder where all Phase 2 plots will be saved
+PLOTS_DIR <- "plots/phase2"
 ```
 
 ---
@@ -84,12 +90,18 @@ seurat <- RunPCA(seurat, verbose = FALSE)
 ### 5a. Inspect PC loadings
 
 ```{r pc-loadings, fig.width=10, fig.height=8}
-VizDimLoadings(seurat, dims = 1:3, reduction = "pca")
+p_loadings <- VizDimLoadings(seurat, dims = 1:3, reduction = "pca")
+p_loadings
+ggsave(file.path(PLOTS_DIR, "phase2_step05a_pc_loadings.png"),
+       plot = p_loadings, width = 10, height = 8, dpi = 150)
 ```
 
 ### 5b. PC heatmaps
 
 ```{r pc-heatmaps, fig.width=10, fig.height=16}
+png(file.path(PLOTS_DIR, "phase2_step05b_pc_heatmaps.png"), width = 1000, height = 1600)
+DimHeatmap(seurat, dims = 1:20, cells = 500, balanced = TRUE)
+dev.off()
 DimHeatmap(seurat, dims = 1:20, cells = 500, balanced = TRUE)
 ```
 
@@ -98,10 +110,13 @@ DimHeatmap(seurat, dims = 1:20, cells = 500, balanced = TRUE)
 ## 6. Choose number of PCs — Elbow plot
 
 ```{r elbow-plot, fig.cap="Elbow plot — choose PCs where the curve flattens"}
-ElbowPlot(seurat, ndims = 30) +
+p_elbow <- ElbowPlot(seurat, ndims = 30) +
   geom_vline(xintercept = N_PCS, linetype = "dashed", color = "red") +
   annotate("text", x = N_PCS + 1, y = max(Stdev(seurat[["pca"]])) * 0.9,
            label = paste("N_PCS =", N_PCS), hjust = 0, color = "red")
+p_elbow
+ggsave(file.path(PLOTS_DIR, "phase2_step06_elbow_plot.png"),
+       plot = p_elbow, width = 8, height = 5, dpi = 150)
 ```
 
 ---
@@ -113,7 +128,10 @@ seurat <- RunUMAP(seurat, dims = 1:N_PCS, verbose = FALSE)
 ```
 
 ```{r plot-umap, fig.cap="UMAP embedding"}
-DimPlot(seurat, reduction = "umap") + ggtitle("UMAP")
+p_umap <- DimPlot(seurat, reduction = "umap") + ggtitle("UMAP")
+p_umap
+ggsave(file.path(PLOTS_DIR, "phase2_step07_umap.png"),
+       plot = p_umap, width = 8, height = 6, dpi = 150)
 ```
 
 ---
@@ -125,7 +143,10 @@ seurat <- RunTSNE(seurat, dims = 1:N_PCS, verbose = FALSE)
 ```
 
 ```{r plot-tsne, fig.cap="t-SNE embedding"}
-DimPlot(seurat, reduction = "tsne") + ggtitle("t-SNE")
+p_tsne <- DimPlot(seurat, reduction = "tsne") + ggtitle("t-SNE")
+p_tsne
+ggsave(file.path(PLOTS_DIR, "phase2_step08_tsne.png"),
+       plot = p_tsne, width = 8, height = 6, dpi = 150)
 ```
 
 ---
@@ -135,7 +156,10 @@ DimPlot(seurat, reduction = "tsne") + ggtitle("t-SNE")
 ```{r umap-vs-tsne, fig.width=14, fig.height=5}
 p1 <- DimPlot(seurat, reduction = "umap") + ggtitle("UMAP")
 p2 <- DimPlot(seurat, reduction = "tsne") + ggtitle("t-SNE")
-p1 + p2
+p_compare <- p1 + p2
+p_compare
+ggsave(file.path(PLOTS_DIR, "phase2_step09_umap_vs_tsne.png"),
+       plot = p_compare, width = 14, height = 5, dpi = 150)
 ```
 
 ---
@@ -151,21 +175,21 @@ cat("Saved processed Seurat object to: Data/phase2_seurat_processed.rds\n")
 
 ## 11. Decision Checkpoint 2
 
-**Decision:** Number of PCs and normalization method.
+**Decision 1 — Normalization method:** LogNormalize
 
-**What I chose:**
+- **What I chose:** NormalizeData (LogNormalize, scale.factor = 10,000) → FindVariableFeatures (VST, 3,000 genes) → ScaleData (regress `percent.mt`)
+- **Why not SCTransform:** Both SCTransform v1 and v2 (`vst.flavor = "v2"` with `glmGamPoi`) crash with an OOM error at `sctransform::correct()`, which attempts to allocate a ~9.1 GB dense matrix. This is an architectural limitation for datasets of this size. LogNormalize is well-established in the literature and produces concordant results for clustering and differential expression.
+- **TODO:** Run SCTransform on an SSH server with more RAM for the final version.
 
-- PCs used for downstream steps: `r N_PCS`
-- Normalization: LogNormalize + FindVariableFeatures (3000 genes) + ScaleData (with `percent.mt` regression)
+---
 
-**Why LogNormalize instead of SCTransform:**
-Both SCTransform v1 and v2 (`vst.flavor = "v2"` with `glmGamPoi`) crash with an OOM error at `sctransform::correct()`, which attempts to allocate a ~9.1 GB dense matrix. This is an architectural limitation of SCTransform for datasets of this size (~100K+ cells). The LogNormalize workflow is well-established in the literature and produces concordant results for clustering and differential expression.
-**#TODO:: LETS USE THE SCTRANSFORM IN THE SSH SERVER WHERE WE HAVE MORE RAM.WE WILL USE THE LOGNORMALIZE IN THE LOCAL MACHINE FOR THE DRAFT AND THEN SWITCH TO SCTRANSFORM IN THE FINAL VERSION.**
-**How many PCs:**
-The elbow plot shows where additional PCs contribute diminishing variance. The chosen cutoff balances capturing biological signal (enough PCs) against including noise (too many PCs).
+**Decision 2 — Number of PCs:** `r N_PCS`
 
-**What you still need to add:**
-Replace generic text with your interpretation of the actual elbow plot. State the exact PC cutoff and justify it.
+- **What I chose:** 20 PCs
+- **Justification from the elbow plot:** PC1 dominates with std ≈ 14 (the monocyte signal). The curve declines gradually through PC2–10 (std 8 → 2.5), then slows to a nearly flat plateau from PC10–20. After PC20 the curve is essentially flat at std ≈ 1–1.5 — the noise floor. There is no single sharp elbow; the transition is gradual, which is typical for complex multi-celltype datasets. PC20 is the start of the plateau.
+- **Justification from PC heatmaps:** PC1–3 show extremely clean two-block patterns. PC4–15 retain visible structure. PC16–20 are patchier but not pure noise. Going beyond 20 would add PCs that are predominantly noise.
+- **Justification from PC loadings:** PC1 = monocyte markers (FCN1, LYZ, S100A9), PC2 = platelet markers (CLEC1B, TUBB1), PC3 = B cells vs NK/T cells (CD79A vs NKG7, CCL5). All three PCs are biologically interpretable, confirming PCA captured real structure.
+- **Alternatives considered:** 15 PCs would likely lose sub-population structure visible in PC16–20; 25 PCs would add noise. N_PCS = 20 is the best-supported cutoff given the evidence from all three diagnostic plots.
 
 ---
 
