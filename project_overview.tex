@@ -1,0 +1,389 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{parskip}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{}{0em}{}
+
+\title{\textbf{scRNA-seq Project Overview}\\
+\large COVID-19 PBMC — Monocyte Dysregulation}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\noindent
+This document summarizes the analysis pipeline across all five phases.
+The dataset is single-cell RNA-seq from peripheral blood mononuclear cells (PBMCs)
+of COVID-19 patients (GSE149689, Lee et al.\ 2020).
+The central question is whether CD14\textsuperscript{+} monocytes in severe COVID-19
+show simultaneous activation of interferon-stimulated genes (ISGs) and
+pro-inflammatory genes (TNF/IL-1\(\beta\)), a state called \textit{co-activation}.
+
+% ─────────────────────────────────────────────
+\section{Background}
+% ─────────────────────────────────────────────
+
+\subsection{The project question in simple words}
+
+The project asks one central question:
+
+\begin{quote}
+\textit{In severe COVID-19, do blood monocytes enter a special overactive state
+where they are both fighting the virus and causing strong inflammation at the same time?}
+\end{quote}
+
+These two programs are:
+\begin{itemize}[nosep]
+  \item \textbf{Antiviral program} — interferon-stimulated genes (ISGs) that fight viruses.
+  \item \textbf{Inflammatory program} — TNF and IL-1\(\beta\) genes that drive aggressive inflammation.
+\end{itemize}
+
+If a monocyte has \textit{both programs active at the same time}, it is called \textbf{co-activated}.
+The project tests whether this co-activated state is real, repeatable, and linked to disease severity.
+
+Why it matters: if these cells really enter this mixed overactive state, it helps explain
+why severe COVID causes such strong immune damage.
+
+The project checks this in two ways:
+\begin{itemize}[nosep]
+  \item \textbf{Single-cell RNA-seq} — look at cells one by one and see which monocytes have both programs on.
+  \item \textbf{Bulk RNA-seq} — check whether the same overall pattern appears in whole-blood samples.
+\end{itemize}
+
+% ────────────────────────────────────────────────
+\subsection{The research question — unpacked word by word}
+
+The full question is:
+
+\begin{quote}
+\small
+\textit{``In peripheral blood mononuclear cells (PBMCs), is severe COVID-19 associated with
+a classical-monocyte state that shows both Type~I interferon (ISG) activation and
+TNF/IL-1 inflammatory activation, reproducible across independent scRNA-seq cohorts
+and detectable in bulk PBMC/blood RNA-seq?''}
+\end{quote}
+
+\begin{description}[leftmargin=0pt, itemsep=4pt]
+  \item[\normalfont\textbf{``In peripheral blood mononuclear cells (PBMCs)''}]
+    We are working with \textbf{blood immune cells}.
+    PBMCs include monocytes, T cells, B cells, and NK cells.
+
+  \item[\normalfont\textbf{``is severe COVID-19 associated with''}]
+    Does severe COVID \textbf{come together with} this pattern?
+    Not necessarily causing it — just linked to it.
+
+  \item[\normalfont\textbf{``a classical-monocyte state''}]
+    A \textbf{monocyte} is a specific type of immune cell.
+    A \textbf{state} means the cell's current behavior or activity profile.
+
+  \item[\normalfont\textbf{``that shows both''}]
+    Two things must be on \textbf{at the same time}. That is the key claim.
+
+  \item[\normalfont\textbf{``Type~I interferon (ISG) activation''}]
+    The cell's \textbf{antiviral program} is turned on.
+    ISGs (interferon-stimulated genes) are genes the cell activates to fight a virus.
+
+  \item[\normalfont\textbf{``and TNF/IL-1 inflammatory activation''}]
+    The cell's \textbf{inflammation program} is also turned on.
+    TNF and IL-1 are signals that make the immune response more aggressive.
+
+  \item[\normalfont\textbf{``reproducible across independent scRNA-seq cohorts''}]
+    The pattern appears in \textbf{more than one dataset}, not just by chance.
+
+  \item[\normalfont\textbf{``and detectable in bulk PBMC/blood RNA-seq''}]
+    The same signal is also visible when looking at all cells mixed together,
+    not just cell by cell.
+\end{description}
+
+% ────────────────────────────────────────────────────────
+\subsection{Biology basics — cells, genes, and RNA}
+
+\subsubsection{The cell and its instruction book}
+
+Your body is made of \textbf{cells}. Every cell contains the same \textbf{DNA},
+which is like a full instruction book for the body. A \textbf{gene} is one instruction
+in that book.
+
+But a cell does \textit{not} use all genes all the time. When it wants to use a gene,
+it makes a temporary copy called \textbf{RNA}. So:
+
+\begin{itemize}[nosep]
+  \item \textbf{DNA} = full instruction book (permanent)
+  \item \textbf{gene} = one instruction in the book
+  \item \textbf{RNA} = the working copy of a gene that is being used right now
+\end{itemize}
+
+This means RNA tells us \textbf{what the cell is doing right now}.
+That is why we measure RNA instead of DNA to understand cell behavior.
+
+\subsubsection{What scRNA-seq measures}
+
+Single-cell RNA sequencing (\textbf{scRNA-seq}) measures, for each individual cell,
+which genes are active and how strongly. The result is a large table:
+
+\begin{itemize}[nosep]
+  \item rows = genes
+  \item columns = cells
+  \item each number = how many RNA molecules from that gene were detected in that cell
+\end{itemize}
+
+These counts are usually based on \textbf{UMIs} (unique molecular identifiers),
+a technology that counts each RNA molecule once to avoid overcounting.
+
+\subsubsection{What is a monocyte?}
+
+A \textbf{monocyte} is a type of immune cell found in blood. Its job is to detect
+threats (bacteria, viruses, damaged tissue) and respond to them.
+\textbf{Classical monocytes} (CD14\textsuperscript{+}) are the most common subtype
+and the ones studied in this project. In severe COVID-19, these cells may become
+abnormally overactivated, which is the central hypothesis of the project.
+
+% ─────────────────────────────────────────────────────────
+\subsection{QC metrics — nFeature\_RNA, nCount\_RNA, percent.mt}
+
+Not every captured droplet is a real healthy cell. These three numbers help identify
+and remove low-quality entries.
+
+\subsubsection{nFeature\_RNA}
+
+\textbf{How many different genes were detected in this cell.}
+
+Example: if a cell has RNA detected from 800 different genes, then \texttt{nFeature\_RNA = 800}.
+This measures \textit{variety}.
+
+\subsubsection{nCount\_RNA}
+
+\textbf{How many total RNA molecules were detected in this cell.}
+
+Example: gene A gives 10 counts, gene B gives 4, gene C gives 1 → \texttt{nCount\_RNA = 15}.
+This measures \textit{amount}.
+
+\subsubsection{How they are related}
+
+Think of a shopping bag:
+\begin{itemize}[nosep]
+  \item \texttt{nFeature\_RNA} = how many \textit{different kinds of items} are in the bag
+  \item \texttt{nCount\_RNA} = how many \textit{total items} are in the bag
+\end{itemize}
+A cell with more total RNA tends to also have more detected genes, but not always.
+That is why both are kept as separate signals.
+
+\subsubsection{percent.mt}
+
+\textbf{What fraction of the cell's RNA comes from mitochondrial genes.}
+Mitochondria are the energy structures inside a cell.
+A cell with unusually high mitochondrial RNA has likely been damaged or is dying,
+because when a cell breaks, regular RNA leaks out but mitochondrial RNA is retained.
+
+\subsubsection{Why all three are used together}
+
+Each metric catches something different:
+
+\medskip
+\noindent
+\begin{tabular}{@{}p{3.2cm}p{3.5cm}p{5.5cm}@{}}
+\toprule
+\textbf{Metric} & \textbf{Suspicious value} & \textbf{Likely problem} \\
+\midrule
+\texttt{nFeature\_RNA} & very low & empty droplet / almost no cell \\
+\texttt{nFeature\_RNA} & very high & doublet (two cells captured together) \\
+\texttt{nCount\_RNA} & very low & empty droplet / weak capture \\
+\texttt{nCount\_RNA} & very high & doublet \\
+\texttt{percent.mt} & very high & damaged or dying cell \\
+\bottomrule
+\end{tabular}
+
+\medskip
+A \textbf{doublet} is when two cells are accidentally captured together, making the
+machine think they are one cell. They appear unusually rich in genes and counts
+because they contain RNA from two real cells.
+
+Using all three metrics together is like checking multiple vital signs before trusting
+a measurement. Phase 1 of this project uses these numbers to clean the dataset so
+that all downstream biology is based on real, single, healthy cells.
+
+% ─────────────────────────────────────────────
+\section{Phase 1 — QC and Preprocessing}
+% ─────────────────────────────────────────────
+
+\subsection{Load data and inspect \small\normalfont\textit{(Steps 3–4)}}
+The raw count matrix from the 10X Genomics pipeline is loaded from the
+GSE149689 directory (three files: \texttt{matrix.mtx}, \texttt{barcodes.tsv},
+\texttt{features.tsv}).
+We then report the number of genes, number of cells, and the sparsity of the
+matrix to confirm the data loaded correctly and to get a first sense of scale.
+
+\textbf{Results (GSE149689):}
+\begin{itemize}[nosep]
+  \item Genes: 33,538
+  \item Cells (before QC): 85,144
+  \item Total matrix entries: 2,855,559,472
+  \item Non-zero entries: 127,119,627
+  \item \textbf{Sparsity: 95.55\%}
+  \item Average genes per cell: 1,493
+\end{itemize}
+
+\textbf{What this means:}
+\begin{itemize}[nosep]
+  \item \textbf{33,538 genes} is the standard coverage for a human genome — this confirms the data is complete and not truncated.
+  \item \textbf{85,144 cells} is a large dataset. This number will shrink after QC filtering removes low-quality droplets.
+  \item \textbf{95.55\% sparsity} means that in 95.5\% of all gene-cell combinations, no RNA was detected. This is completely normal and expected in scRNA-seq — a cell only actively uses a small fraction of all genes at any given moment, and low-expression genes are often not captured at all. It does \textit{not} mean the data is bad.
+  \item \textbf{1,493 average genes per cell} is a reasonable starting point. Cells with far fewer genes (e.g.\ below 500) are likely empty droplets, and cells with far more (e.g.\ above 6,000) may be doublets. This average gives a reference to anchor the QC thresholds chosen in the next steps.
+\end{itemize}
+
+\textit{Note: the sparsity calculation required casting matrix dimensions to
+\texttt{numeric} before multiplying, because the product (2.86 billion) exceeds
+R's maximum integer value and would otherwise produce \texttt{NA}.}
+
+\subsection{Create Seurat object and compute QC metrics \small\normalfont\textit{(Steps 5–8)}}
+A Seurat object is created from the count matrix, keeping only genes expressed
+in at least 3 cells.
+For each cell we compute three quality metrics:
+\begin{itemize}[nosep]
+  \item \textbf{nFeature\_RNA} — number of distinct genes detected.
+  \item \textbf{nCount\_RNA} — total UMI (read) count.
+  \item \textbf{percent.mt} — fraction of reads mapping to mitochondrial genes.
+\end{itemize}
+High mitochondrial content indicates a damaged or dying cell.
+These metrics are visualised with violin plots and sorted scatter plots
+so we can choose sensible cutoff values.
+
+\subsection{Filter low-quality cells \small\normalfont\textit{(Steps 9–12)}}
+Cells are removed if they fall outside the chosen thresholds:
+too few genes (likely empty droplets), too many genes or UMIs (likely doublets),
+or too high mitochondrial content (likely dying cells).
+The filtered Seurat object is saved for Phase 2.
+
+% ─────────────────────────────────────────────
+\section{Phase 2 — Normalization and Dimensionality Reduction}
+% ─────────────────────────────────────────────
+
+\subsection{Normalize and identify variable features \small\normalfont\textit{(Step 4)}}
+Raw counts are log-normalized (divided by total cell counts, scaled to 10{,}000,
+then log-transformed) so that cells of different sequencing depths are comparable.
+The 3{,}000 most variable genes are selected to focus on biologically informative
+signal.
+Finally, the data are scaled and the mitochondrial percentage is regressed out
+to remove its confounding effect.
+
+\textit{Note: SCTransform was attempted but fails with an out-of-memory error
+on this dataset size. LogNormalize is used instead and is well-established
+in the literature.}
+
+\subsection{PCA and choosing the number of components \small\normalfont\textit{(Steps 5–6)}}
+PCA is run on the variable genes.
+We inspect the elbow plot (variance explained per PC) and choose a cutoff
+at the point where adding more PCs yields diminishing returns.
+This cutoff value (default 20 PCs) is reused in all downstream steps.
+
+\subsection{UMAP and t-SNE embeddings \small\normalfont\textit{(Steps 7–9)}}
+UMAP and t-SNE are computed from the chosen PCA dimensions to produce a
+2-D layout for visualisation.
+Both embeddings are compared side-by-side; UMAP is used as the primary
+visualisation going forward.
+
+% ─────────────────────────────────────────────
+\section{Phase 3 — Clustering and Cell-Type Annotation}
+% ─────────────────────────────────────────────
+
+\subsection{Graph-based clustering \small\normalfont\textit{(Steps 4–7)}}
+A shared-nearest-neighbour (SNN) graph is built from the PCA embedding.
+Clusters are detected with the Louvain algorithm at five different resolution
+values (0.1 to 1.0) and displayed on the UMAP grid to find the resolution
+that gives biologically meaningful, non-over-split clusters.
+The chosen resolution is then fixed and used for all downstream steps.
+
+\subsection{Cell-type annotation \small\normalfont\textit{(Steps 8–9)}}
+Two complementary approaches are used together:
+\begin{itemize}[nosep]
+  \item \textbf{Manual markers} — canonical marker genes for monocytes
+        (\textit{CD14, LYZ, FCGR3A}), T cells (\textit{CD3D, CD4, CD8A}),
+        B cells (\textit{MS4A1, CD79A}), NK cells (\textit{NKG7, GNLY}),
+        and dendritic cells (\textit{FCER1A, CST3}) are visualised
+        as feature plots and a dot plot.
+  \item \textbf{Automated (SingleR)} — each cell is labelled by comparing its
+        expression profile against the BlueprintEncode reference using
+        the SingleR package. The resulting labels are overlaid on the UMAP and
+        cross-tabulated against graph-based clusters.
+\end{itemize}
+
+\subsection{Find cluster-defining markers \small\normalfont\textit{(Step 10)}}
+\texttt{FindAllMarkers()} runs a differential expression test comparing each
+cluster against all other cells, returning the genes that best define each
+cluster. The top 5 markers per cluster are shown in a heatmap and a table.
+
+% ─────────────────────────────────────────────
+\section{Phase 4 — CD14\textsuperscript{+} Monocyte Deep-Dive}
+% ─────────────────────────────────────────────
+
+\subsection{Add severity metadata and subset monocytes \small\normalfont\textit{(Steps 3–4)}}
+Each cell's barcode suffix encodes its original sample (donor) identity.
+This is mapped to condition (COVID / Flu / Healthy) and severity
+(Severe / Mild / Healthy / Flu) based on the sample table from Lee et al.\ 2020.
+Cells annotated as monocytes by SingleR are then extracted into a separate
+object for focused analysis.
+
+\subsection{Module scoring — ISG and TNF/IL-1\(\beta\) \small\normalfont\textit{(Steps 5–6)}}
+Two gene-set scores are computed with \texttt{AddModuleScore()}:
+\begin{itemize}[nosep]
+  \item \textbf{ISG score} — interferon-stimulated genes:
+        \textit{ISG15, IFIT1, MX1, OAS1, IFI44L}.
+  \item \textbf{TNF/IL-1\(\beta\) score} — pro-inflammatory genes:
+        \textit{TNF, IL1B, CCL3, CCL4, CXCL8}.
+\end{itemize}
+Each score measures how strongly a cell expresses that programme relative to
+background.
+
+\subsection{Co-activation analysis and severity comparison \small\normalfont\textit{(Steps 7–12)}}
+A cell is labelled \textit{co-activated} if both its ISG score and
+TNF/IL-1\(\beta\) score are above zero.
+A scatter plot of the two scores (coloured by severity) visualises the
+co-activated quadrant.
+Violin plots compare the scores across severity groups at the single-cell level.
+Scores are then averaged per donor and compared between Mild and Severe COVID
+patients with Wilcoxon rank-sum tests; a Kruskal-Wallis test covers all groups.
+
+\subsection{Differential expression and volcano plot \small\normalfont\textit{(Steps 13–14)}}
+\texttt{FindMarkers()} identifies genes differentially expressed between
+severe COVID monocytes and healthy monocytes.
+Results are shown as a volcano plot (log2 fold-change vs.\ adjusted p-value),
+highlighting the top upregulated and downregulated genes.
+
+% ─────────────────────────────────────────────
+\section{Phase 5 — Replication on GSE150861}
+% ─────────────────────────────────────────────
+
+\subsection{Overview \small\normalfont\textit{(Steps 1–3)}}
+GSE150861 (Guo et al.\ 2020) contains PBMCs from two severe COVID-19 patients
+treated with Tocilizumab (anti-IL-6R), sampled at days 1, 5, and 7.
+This phase checks whether the co-activated monocyte state found in Phase 4
+appears in a completely independent dataset, and whether it changes over time
+under treatment.
+
+\subsection{QC, normalization, and clustering \small\normalfont\textit{(Steps 4–7)}}
+Exactly the same pipeline as Phases 1--3 is applied: QC filtering,
+LogNormalize, PCA (20 PCs), UMAP, and Louvain clustering at resolution 0.5.
+Cells are annotated with the same manual markers and SingleR reference.
+
+\subsection{Module scoring and co-activation replication \small\normalfont\textit{(Steps 8–10)}}
+The same ISG and TNF/IL-1\(\beta\) gene lists from Phase 4 are used unchanged.
+A scatter plot of the two scores, now faceted by patient and coloured by
+time point, shows whether the co-activated quadrant is populated on day 1.
+
+\subsection{Longitudinal dynamics and Tocilizumab effect \small\normalfont\textit{(Steps 11–12)}}
+The percentage of co-activated monocytes and the mean scores are computed
+per patient per day.
+Line plots track how these values change from day 1 to day 7.
+Violin plots and Wilcoxon tests compare day 1 against later time points,
+probing whether Tocilizumab reduces the TNF/IL-1\(\beta\) component
+while the ISG component persists.
+
+\end{document}

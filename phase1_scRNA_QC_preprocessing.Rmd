@@ -90,7 +90,7 @@ counts[1:min(10, nrow(counts)), 1:min(3, ncol(counts))]
 ## 4. Inspect matrix dimensions and sparsity
 
 ```{r matrix-summary}
-total_entries <- nrow(counts) * ncol(counts)
+total_entries <- as.numeric(nrow(counts)) * as.numeric(ncol(counts))
 nonzero_entries <- length(counts@x)
 sparsity_pct <- 100 * (1 - nonzero_entries / total_entries)
 avg_genes_per_cell <- mean(Matrix::colSums(counts > 0))
