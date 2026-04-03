@@ -463,6 +463,37 @@ signal. It suggests that the blood samples — collected from COVID-19 patients 
 severity — contained many stressed or dying immune cells, which aligns with the
 hypothesis that severe COVID causes widespread immune cell dysregulation.
 
+\subsubsection*{Things worth mentioning}
+
+\begin{itemize}[nosep]
+  \item \textbf{Doublet detection was incomplete.}
+        Only 238 cells (0.3\%) were removed by the upper gene/count thresholds.
+        The expected doublet rate for 10X experiments is 1–5\%, meaning roughly
+        850–4,250 doublets may still be present in the filtered dataset.
+        Fixed thresholds are a coarse filter for doublets; a dedicated tool such as
+        DoubletFinder would catch more. This is a known limitation worth noting in the
+        write-up.
+
+  \item \textbf{The lower-bound threshold (MIN\_FEATURES = 500) could be justified more precisely.}
+        The value was chosen visually from the genes-per-cell plot.
+        A more rigorous approach is to fit the inflection point of the sorted curve or
+        use a MAD-based rule ($< \text{median} - 3 \times \text{MAD}$).
+        The chosen value happens to land in a reasonable place, but the reasoning could
+        be made more explicit.
+
+  \item \textbf{Post-filtering metrics are still raw counts — not normalized.}
+        The medians (1,872 genes / 5,845 UMIs per cell) confirm healthy capture quality,
+        but cells cannot yet be compared to each other until normalization in Phase 2
+        removes the effect of varying sequencing depth per cell.
+
+  \item \textbf{No per-sample QC was performed.}
+        The dataset contains 20 donors across four groups (Severe COVID, Mild COVID,
+        Flu, Healthy). Applying QC globally without checking whether any single donor
+        contributes disproportionately many low-quality cells can mask sample-level
+        issues. This would be worth checking if the downstream clustering shows
+        one cluster driven by a single donor.
+\end{itemize}
+
 % ─────────────────────────────────────────────
 \section{Phase 2 — Normalization and Dimensionality Reduction}
 % ─────────────────────────────────────────────
