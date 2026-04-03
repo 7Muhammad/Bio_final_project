@@ -36,6 +36,9 @@ knitr::opts_chunk$set(
   fig.width = 8,
   fig.height = 5
 )
+
+# Create plots output folder
+dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 ```
 
 ---
@@ -60,6 +63,9 @@ MAX_PERCENT_MT <- 20
 
 # Optional: minimum number of cells expressing a gene to keep the gene at object creation
 MIN_CELLS_PER_GENE <- 3
+
+# Folder where all Phase 1 plots will be saved
+PLOTS_DIR <- "plots/phase1"
 ```
 
 ---
@@ -137,6 +143,12 @@ legend(
   lwd = 2,
   bty = "n"
 )
+
+# Save plot
+p_genes <- recordPlot()
+png(file.path(PLOTS_DIR, "phase1_step05_genes_per_cell.png"), width = 900, height = 550)
+replayPlot(p_genes)
+dev.off()
 ```
 
 ---
@@ -184,6 +196,12 @@ legend(
   lwd = 2,
   bty = "n"
 )
+
+# Save plot
+p_mito <- recordPlot()
+png(file.path(PLOTS_DIR, "phase1_step07_mito_distribution.png"), width = 900, height = 550)
+replayPlot(p_mito)
+dev.off()
 ```
 
 ---
@@ -191,12 +209,15 @@ legend(
 ## 8. Visualize QC metrics
 
 ```{r violin-qc, fig.width=11, fig.height=4}
-VlnPlot(
+p_vln_qc <- VlnPlot(
   seurat,
   features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
   ncol = 3,
   pt.size = 0.1
 ) + NoLegend()
+p_vln_qc
+ggsave(file.path(PLOTS_DIR, "phase1_step08_violin_qc_metrics.png"),
+       plot = p_vln_qc, width = 11, height = 4, dpi = 150)
 ```
 
 ```{r scatter-qc, fig.width=10, fig.height=4}
@@ -206,7 +227,10 @@ p1 <- FeatureScatter(seurat, feature1 = "nCount_RNA", feature2 = "percent.mt") +
 p2 <- FeatureScatter(seurat, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") +
   ggtitle("nCount_RNA vs nFeature_RNA")
 
-p1 + p2
+p_scatter_qc <- p1 + p2
+p_scatter_qc
+ggsave(file.path(PLOTS_DIR, "phase1_step08_scatter_qc_metrics.png"),
+       plot = p_scatter_qc, width = 10, height = 4, dpi = 150)
 ```
 
 ---
@@ -272,7 +296,10 @@ p_after <- VlnPlot(
   pt.size = 0.1
 ) + plot_annotation(title = "After filtering")
 
-p_before / p_after
+p_compare <- p_before / p_after
+p_compare
+ggsave(file.path(PLOTS_DIR, "phase1_step11_before_after_filtering.png"),
+       plot = p_compare, width = 11, height = 8, dpi = 150)
 ```
 
 ```{r compare-summary-after}

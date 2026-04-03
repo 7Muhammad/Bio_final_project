@@ -6,6 +6,7 @@
 \usepackage{enumitem}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{graphicx}
 
 \titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
 \titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
@@ -147,6 +148,48 @@ and the ones studied in this project. In severe COVID-19, these cells may become
 abnormally overactivated, which is the central hypothesis of the project.
 
 % ─────────────────────────────────────────────────────────
+\subsection{What is a Seurat object?}
+
+After loading the raw count matrix, the very first thing we do is wrap it in a
+\textbf{Seurat object}. Every phase of this project works with a Seurat object,
+so it is useful to understand what it is.
+
+\subsubsection{The simple idea}
+
+A Seurat object is like a \textbf{folder that holds everything about your experiment in one place}.
+
+Instead of keeping your count matrix in one variable, your cell metadata in another,
+your UMAP coordinates somewhere else, and your cluster labels somewhere else,
+the Seurat object keeps all of that together under one name.
+
+So when you read code like \texttt{seurat\$percent.mt} or
+\texttt{seurat@reductions\$umap}, you are just reaching into different pockets
+of that same folder.
+
+\subsubsection{What is stored inside a Seurat object?}
+
+\begin{itemize}[nosep]
+  \item \textbf{Count matrix} — the raw gene-by-cell expression table.
+  \item \textbf{Normalized data} — the log-normalized version created in Phase 2.
+  \item \textbf{Cell metadata} — one row per cell, with columns like
+        \texttt{nFeature\_RNA}, \texttt{percent.mt}, \texttt{severity}, \texttt{singler\_main}, etc.
+        Anything you want to remember about a cell goes here.
+  \item \textbf{Variable features} — the list of most informative genes selected during normalization.
+  \item \textbf{Dimensionality reductions} — PCA, UMAP, and t-SNE coordinates, added in Phase 2.
+  \item \textbf{Cluster labels} — which cluster each cell belongs to, added in Phase 3.
+\end{itemize}
+
+\subsubsection{Why is this useful?}
+
+Because all downstream steps — normalization, PCA, clustering, annotation, subsetting —
+read from and write back into the same object. You can save the object to a file
+(\texttt{.rds}) at the end of each phase and load it back at the start of the next one,
+so you never have to re-run the entire pipeline from scratch.
+
+This also makes the code clean: instead of passing ten separate variables into every
+function, you pass one Seurat object and get one back.
+
+% ─────────────────────────────────────────────────────────
 \subsection{QC metrics — nFeature\_RNA, nCount\_RNA, percent.mt}
 
 Not every captured droplet is a real healthy cell. These three numbers help identify
@@ -255,6 +298,80 @@ For each cell we compute three quality metrics:
 High mitochondrial content indicates a damaged or dying cell.
 These metrics are visualised with violin plots and sorted scatter plots
 so we can choose sensible cutoff values.
+
+\textbf{Seurat object after creation:} 85,144 cells, 23,335 genes.
+Note that the gene count dropped from 33,538 (raw matrix) to 23,335 because genes
+expressed in fewer than 3 cells were removed.
+
+\textbf{Mitochondrial percentage summary:}
+Min = 0\%, Median = 8.1\%, Mean = 17.5\%, Max = 99.8\%.
+The mean being much higher than the median signals a heavy tail of very damaged cells.
+
+\subsubsection*{Step 5 — Genes per cell distribution}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{plots/phase1/phase1_step05_genes_per_cell.png}
+\end{center}
+
+\begin{itemize}[nosep]
+  \item The left side of the curve (first $\sim$5,000 cells when sorted) drops sharply to
+        very low gene counts — these are almost certainly empty droplets with only ambient RNA.
+  \item The middle section rises gradually and smoothly — this is the real cell population.
+  \item At the very far right, a small sharp uptick exceeds 6,000 genes — these are likely
+        doublets (two cells captured together appear as one unusually gene-rich cell).
+  \item \textbf{Conclusion:} the thresholds MIN = 500 and MAX = 6,000 are well-placed.
+        The red line sits just above the dropout cliff and the blue line catches the doublet spike.
+\end{itemize}
+
+\subsubsection*{Step 7 — Mitochondrial content distribution}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{plots/phase1/phase1_step07_mito_distribution.png}
+\end{center}
+
+\begin{itemize}[nosep]
+  \item The first $\sim$65,000 cells (sorted) stay flat and low, mostly under 15\% — these look healthy.
+  \item From $\sim$65,000 onwards the curve rises sharply and exponentially, reaching 100\%.
+  \item This means roughly 20,000 cells ($\sim$25\% of the dataset) have $>$20\% mitochondrial content.
+  \item This is an unusually high proportion, suggesting the blood samples contained a lot of
+        stressed or damaged cells, which is actually consistent with severe COVID-19.
+  \item \textbf{Conclusion:} the 20\% threshold (green dashed line) is a reasonable cutoff.
+        It preserves the large flat healthy region and removes the exponential tail.
+\end{itemize}
+
+\subsubsection*{Step 8 — Violin and scatter plots}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase1/phase1_step08_violin_qc_metrics.png}
+\end{center}
+
+\begin{center}
+  \includegraphics[width=0.95\textwidth]{plots/phase1/phase1_step08_scatter_qc_metrics.png}
+\end{center}
+
+\textit{Violin plots (nFeature\_RNA, nCount\_RNA, percent.mt):}
+\begin{itemize}[nosep]
+  \item \textbf{nFeature\_RNA}: a very dense mass of cells compressed near zero (empty droplets /
+        low-quality) with a thinner body of real cells above 500.
+        A few outliers reach above 6,000 (doublet candidates).
+  \item \textbf{nCount\_RNA}: same pattern — a large low-count mass at the bottom, a real-cell body
+        in the middle, and isolated high-count outliers above 40,000–50,000.
+  \item \textbf{percent.mt}: extremely wide violin spreading from near 0 to 100\%.
+        This confirms the heavy tail of damaged cells seen in step 7.
+\end{itemize}
+
+\textit{Scatter plots:}
+\begin{itemize}[nosep]
+  \item \textbf{nCount\_RNA vs percent.mt} — classic ``L'' shape. Cells with very low counts
+        are scattered at all mitochondrial percentages up to 100\% (damaged / dying cells).
+        The healthy cells cluster tightly at the bottom with low mito\%.
+        This pattern confirms that low count + high mito go together as a double sign of bad quality.
+  \item \textbf{nCount\_RNA vs nFeature\_RNA} — tight upward curve confirming the two metrics
+        are correlated. A few dots at the top-right (above 6,000 genes, above 100,000 counts)
+        are outliers consistent with doublets.
+        The non-linear curve (not a straight line) is expected because each extra count
+        becomes less likely to represent a new gene the more genes are already detected.
+\end{itemize}
 
 \subsection{Filter low-quality cells \small\normalfont\textit{(Steps 9–12)}}
 Cells are removed if they fall outside the chosen thresholds:
