@@ -332,24 +332,40 @@ cat("Saved filtered Seurat object to:\n", file.path(DATA_ROOT, "phase1_seurat_fi
 
 ## 13. Decision checkpoint 1
 
-Use this section in your final project write-up.
+**Decision:** I filtered cells using thresholds on nFeature_RNA, nCount_RNA, and percent.mt.
 
-**Decision:** I filtered cells using thresholds on the number of detected genes and mitochondrial percentage.
+**What I chose:**
 
-**What I chose in this draft:**
+| Threshold | Value | Reason |
+|---|---|---|
+| MIN_FEATURES | 500 | Sits just above the empty-droplet cliff in the genes-per-cell plot |
+| MAX_FEATURES | 6,000 | Catches the small doublet spike at the far right of the distribution |
+| MIN_COUNTS | 1,000 | Removes weak-capture droplets independently of gene count |
+| MAX_COUNTS | 40,000 | Removes high-UMI doublets |
+| MAX_PERCENT_MT | 20% | Preserves the large flat healthy region, removes the exponential damage tail |
 
-- lower gene threshold = `r MIN_FEATURES`
-- upper gene threshold = `r MAX_FEATURES`
-- mitochondrial threshold = `r MAX_PERCENT_MT`%
+**Outcome:**
 
-**Why this choice:**  
-These thresholds remove likely low-quality droplets/dead cells (too few genes), likely doublets or unusually complex droplets (too many genes), and stressed/dying cells (high mitochondrial percentage).
+- Cells before: 85,144
+- Cells after: **55,548** (29,596 removed, 34.8%)
+- Post-filtering medians: 1,872 genes/cell, 5,845 UMIs/cell, 7.3% mito
 
-**Alternatives:**  
-Possible alternatives include using different fixed thresholds, adaptive thresholds based on median absolute deviation (MAD), explicit doublet-detection tools, or more dataset-specific mitochondrial cutoffs.
+**Why these thresholds:**  
+All five thresholds were chosen by visually inspecting the QC plots (steps 5, 7, 8).
+The genes-per-cell distribution clearly showed a dropout cliff below 500 and a doublet spike above 6,000.
+The mitochondrial distribution showed a flat healthy region up to ~15% followed by a sharp exponential rise — 20% sits at the start of that rise and is a standard cutoff in the literature.
+The nCount thresholds add an independent check: 1,000 removes very weak droplets that passed the gene filter, and 40,000 removes high-UMI doublets.
 
-**What you still need to add:**  
-Replace this generic explanation with your own interpretation based on the actual QC plots from your dataset.
+**Largest sources of removed cells:**
+- 22,774 cells (26.7%) — too few genes (empty droplets / ambient RNA)
+- 18,282 cells (21.5%) — too high mitochondrial content (damaged cells, consistent with severe COVID samples)
+- 13,959 cells (16.4%) — too few UMIs (weak capture)
+- 238 cells (0.3%) — doublet candidates (very few, consistent with a well-run experiment)
+
+**Alternatives considered:**  
+Adaptive thresholds based on median absolute deviation (MAD) could be used instead of fixed values.
+Dedicated doublet-detection tools (e.g. DoubletFinder) could replace the upper gene/count cutoffs.
+For a final version, these would be worth applying, especially for the doublet filter.
 
 ---
 

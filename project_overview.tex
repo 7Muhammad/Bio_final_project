@@ -379,6 +379,90 @@ too few genes (likely empty droplets), too many genes or UMIs (likely doublets),
 or too high mitochondrial content (likely dying cells).
 The filtered Seurat object is saved for Phase 2.
 
+\textbf{Step 9 — cells flagged per filter:}
+
+\medskip
+\noindent
+\begin{tabular}{@{}p{4.5cm}p{2cm}p{6cm}@{}}
+\toprule
+\textbf{Filter} & \textbf{Cells} & \textbf{Likely cause} \\
+\midrule
+nFeature\_RNA $\leq$ 500  & 22,774 & Empty droplets / ambient RNA \\
+nCount\_RNA $\leq$ 1,000  & 13,959 & Low-quality / weak capture \\
+percent.mt $\geq$ 20\%    & 18,282 & Damaged or dying cells \\
+nFeature\_RNA $\geq$ 6,000 & 77    & Doublet candidates \\
+nCount\_RNA $\geq$ 40,000  & 161   & Doublet candidates \\
+\bottomrule
+\end{tabular}
+
+\medskip
+\textbf{Step 10 — filtering outcome:}
+\begin{itemize}[nosep]
+  \item Cells before: 85,144
+  \item Cells after: 55,548
+  \item Cells removed: 29,596 (\textbf{34.8\% of the dataset})
+\end{itemize}
+
+The largest single source of removed cells was the low-gene filter (22,774 empty droplets),
+followed closely by the high-mitochondrial filter (18,282 damaged cells).
+Doublets were rare — only 238 cells combined — consistent with a well-run 10X experiment.
+
+\textbf{Step 12 — post-filtering QC summary:}
+\begin{itemize}[nosep]
+  \item Median nFeature\_RNA: 1,872 genes/cell
+  \item Median nCount\_RNA: 5,845 UMIs/cell
+  \item Median percent.mt: 7.32\%
+\end{itemize}
+
+\subsubsection*{Step 11 — Before vs after filtering}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase1/phase1_step11_before_after_filtering.png}
+\end{center}
+
+\textit{Top row = before filtering. Bottom row = after filtering.}
+
+\begin{itemize}[nosep]
+  \item \textbf{nFeature\_RNA}: before, a huge compressed mass sits near zero with a long tail up to
+        8,000. After, the distribution is clean and centered around 1,500--2,000 with a tight upper
+        bound below 6,000. The noise is gone.
+  \item \textbf{nCount\_RNA}: before, the violin is dominated by an enormous low-count mass with a few
+        extreme outliers near 150,000. After, the distribution is compact and centered around
+        5,000--20,000 with the outliers removed.
+  \item \textbf{percent.mt}: the most dramatic change. Before, the violin fills the entire 0--100\%
+        range — nearly half the plot. After, it collapses to a tight shape below 20\%, with a
+        median of 7.3\%. This confirms that a large portion of the original data was damaged cells.
+\end{itemize}
+
+\textbf{Overall conclusion:} the filtering was effective and the thresholds were appropriate.
+The retained 55,548 cells represent a clean dataset of real, single, reasonably healthy cells
+ready for normalization and downstream analysis.
+
+\subsection{Phase 1 conclusion}
+
+Phase 1 started with a large but noisy dataset and produced a clean, filtered object ready
+for biological analysis. The key outcomes are:
+
+\begin{itemize}[nosep]
+  \item \textbf{85,144 cells} entered QC; \textbf{55,548 cells} passed (34.8\% removed).
+  \item The largest source of removed cells was empty droplets and low-quality captures
+        (too few genes or UMIs), which made up the majority of the flagged entries.
+  \item A substantial fraction (21.5\%) had excessive mitochondrial content, consistent
+        with the blood samples coming from severely ill COVID-19 patients where cell stress
+        and damage is expected.
+  \item Doublets were rare (0.3\%), confirming the 10X capture was clean.
+  \item After filtering, the typical cell has 1,872 detected genes, 5,845 total UMI counts,
+        and only 7.3\% mitochondrial RNA — all healthy values.
+  \item The filtered Seurat object is saved to \texttt{Data/phase1\_seurat\_filtered.rds}
+        and is the input for Phase 2.
+\end{itemize}
+
+\textbf{The one important observation for the project:} the unusually high proportion of
+damaged cells (18,282 cells with $>$20\% mito) in the raw data is itself a biological
+signal. It suggests that the blood samples — collected from COVID-19 patients of varying
+severity — contained many stressed or dying immune cells, which aligns with the
+hypothesis that severe COVID causes widespread immune cell dysregulation.
+
 % ─────────────────────────────────────────────
 \section{Phase 2 — Normalization and Dimensionality Reduction}
 % ─────────────────────────────────────────────
