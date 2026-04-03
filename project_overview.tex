@@ -883,31 +883,591 @@ in Phase 3. The processed object is saved to \texttt{Data/phase2\_seurat\_proces
 \section{Phase 3 — Clustering and Cell-Type Annotation}
 % ─────────────────────────────────────────────
 
-\subsection{Graph-based clustering \small\normalfont\textit{(Steps 4–7)}}
-A shared-nearest-neighbour (SNN) graph is built from the PCA embedding.
-Clusters are detected with the Louvain algorithm at five different resolution
-values (0.1 to 1.0) and displayed on the UMAP grid to find the resolution
-that gives biologically meaningful, non-over-split clusters.
-The chosen resolution is then fixed and used for all downstream steps.
+\subsection{Phase 3 overview — the big picture}
 
-\subsection{Cell-type annotation \small\normalfont\textit{(Steps 8–9)}}
-Two complementary approaches are used together:
+\textbf{Phase 1 cleaned the cells. Phase 2 organized them so structure appeared. Phase 3 names the groups.}
+
+At the end of Phase 2 we had a UMAP with clear visual blobs but no labels — we could
+\textit{see} distinct populations but had no idea what cell types they were.
+Phase 3 answers that question in two independent ways:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Graph-based clustering} — the algorithm finds groups by looking at which
+        cells are nearest neighbours in PCA space, without using any prior biology.
+        This gives each cell a cluster number (0, 1, 2, \ldots).
+  \item \textbf{Biological annotation} — we look at known marker genes and an automated
+        reference-based tool (SingleR) to map cluster numbers to cell-type names.
+\end{enumerate}
+
+Using two independent approaches and checking that they agree is what gives the
+annotation credibility. Both approaches use the same 20-PC embedding from Phase 2.
+
+\subsection{Graph-based clustering \small\normalfont\textit{(Steps 4–7)}}
+
+A shared-nearest-neighbour (SNN) graph is built from the first 20 PCA dimensions with
+\texttt{FindNeighbors()}. Clusters are then detected with the Louvain algorithm via
+\texttt{FindClusters()} at five resolutions. Higher resolution = more clusters (the
+algorithm cuts the graph more finely); lower resolution = fewer, broader clusters.
+The resolution is a free parameter that requires inspection to set correctly.
+
+\subsubsection*{Step 5 — Resolution sweep}
+
+\texttt{FindClusters()} was run at resolutions 0.1, 0.3, 0.5, 0.8, and 1.0.
+The resulting cluster counts are:
+
+\begin{center}
+\begin{tabular}{cc}
+\hline
+\textbf{Resolution} & \textbf{Number of clusters} \\
+\hline
+0.1 & 12 \\
+0.3 & 19 \\
+0.5 & 23 \\
+0.8 & 35 \\
+1.0 & 34 \\
+\hline
+\end{tabular}
+\end{center}
+
+The most diagnostic number in this table is the \textbf{drop from 35 to 34} when going from
+resolution 0.8 to 1.0. Normally, increasing resolution should add more clusters —
+the Louvain algorithm keeps cutting the graph more finely. When the count goes
+\textit{down}, it means the algorithm is no longer finding stable structure; it is
+splitting real clusters into fragments and then re-merging some of them differently
+on each run. This is the textbook sign of \textbf{over-splitting instability}, and
+it means $\text{res} \geq 0.8$ should not be used.
+
+\textbf{Resolution 0.1} (12 clusters) is too coarse for the opposite reason: the PBMC
+dataset contains more than 12 biologically distinct populations. As the UMAP will show,
+the entire myeloid compartment collapses into 2--3 undifferentiated blobs at this resolution.
+
+This leaves \textbf{resolution 0.3–0.5} as the biologically sensible range.
+
+\subsubsection*{Step 6 — Resolution comparison UMAP grid}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase3/phase3_step06_resolutions_comparison.png}
+\end{center}
+
+The grid confirms the numerical analysis:
+
 \begin{itemize}[nosep]
-  \item \textbf{Manual markers} — canonical marker genes for monocytes
-        (\textit{CD14, LYZ, FCGR3A}), T cells (\textit{CD3D, CD4, CD8A}),
-        B cells (\textit{MS4A1, CD79A}), NK cells (\textit{NKG7, GNLY}),
-        and dendritic cells (\textit{FCER1A, CST3}) are visualised
-        as feature plots and a dot plot.
-  \item \textbf{Automated (SingleR)} — each cell is labelled by comparing its
-        expression profile against the BlueprintEncode reference using
-        the SingleR package. The resulting labels are overlaid on the UMAP and
-        cross-tabulated against graph-based clusters.
+  \item \textbf{res = 0.1 (12 clusters):} The large left-side myeloid continent
+        is one undifferentiated blob. Multiple biologically distinct monocyte
+        subpopulations and the dendritic cell islands are collapsed together.
+        Too coarse.
+
+  \item \textbf{res = 0.3 (19 clusters):} Real structure emerges. The major
+        compartments (myeloid, T/NK lymphoid, B cell, isolated rare populations)
+        separate cleanly. Some sub-populations that are visually distinct may
+        still be merged.
+
+  \item \textbf{res = 0.5 (23 clusters):} Clean boundaries throughout. Small
+        satellite clusters (the top-centre island, the far-right edge populations)
+        are recovered as their own clusters without fragmenting the large continuous
+        regions. This is the best-balanced resolution.
+
+  \item \textbf{res = 0.8 (35 clusters):} The right-side T/NK mass begins to
+        fragment into confetti — small chips that do not correspond to visually
+        distinct regions of the UMAP. Artefactual micro-clusters appear in
+        transition zones between major populations.
+
+  \item \textbf{res = 1.0 (34 clusters):} The fragmentation continues and the
+        instability (35 $\to$ 34 cluster drop) becomes visible as irregular
+        boundary changes with no new biological meaning.
 \end{itemize}
 
+\textbf{Decision: FINAL\_RES = 0.5.}
+Resolution 0.5 gives 23 clusters that match every visually distinct region in the
+UMAP without over-fragmenting the continuous T/NK mass.
+This is also the Seurat default, which reflects community consensus on the typical
+number of cell types recoverable from PBMC datasets.
+
+\subsubsection*{Step 7a — Final clustering UMAP}
+
+\begin{center}
+  \includegraphics[width=0.9\textwidth]{plots/phase3/phase3_step07a_umap_clusters_final.png}
+\end{center}
+
+The UMAP coloured by final clusters (res = 0.5) shows two major continents and
+several smaller isolated islands. The topology is already interpretable from the
+PCA biology alone (before any marker genes are consulted):
+
+\begin{itemize}[nosep]
+  \item \textbf{Left continent (clusters 0, 1, 3, 4) — myeloid compartment.}
+        These are the largest, densest clusters. PC1 in Phase 2 was entirely
+        dominated by monocyte markers (\textit{FCN1, LYZ, S100A9, CST3}) and
+        this continent corresponds to that strong signal. The sub-clusters within
+        it likely separate CD14$^+$ classical monocytes from CD16$^+$/non-classical
+        monocytes and inflammatory monocyte sub-states. Monocyte expansion is
+        a well-documented feature of severe COVID-19.
+
+  \item \textbf{Top-centre isolated group (clusters 13, 15, 20, 21) — rare
+        myeloid/lymphoid populations.}
+        A small, tightly isolated group of clusters sitting above and to the right
+        of the main myeloid mass. The topological isolation from both major
+        continents, combined with their small size, is consistent with
+        \textbf{plasmacytoid dendritic cells (pDC)} or other rare interferon-producing
+        populations, which are known to be transcriptionally very distinct.
+        Cluster 22 (between left and right continents, small) may represent
+        conventional dendritic cells (cDC1/cDC2), which sit transcriptionally
+        between monocytes and lymphocytes.
+
+  \item \textbf{Far right isolated island (cluster 6) — likely NK cells.}
+        A compact, completely detached green blob at the far top-right. Complete
+        topological isolation from the rest of the lymphoid right continent is
+        the characteristic shape of \textbf{NK cells} (Natural Killer cells),
+        which have a very distinct transcriptional profile from T cells despite
+        occupying adjacent UMAP space in less resolved datasets.
+
+  \item \textbf{Right continent (clusters 2, 7, 8, 10, 11, 12, 16, 18, 19) —
+        lymphoid compartment.}
+        The broad right-side mass is the T cell and NK compartment.
+        Its internal structure likely reflects CD4$^+$ helper T cells, CD8$^+$
+        cytotoxic T cells, regulatory T cells (Tregs), and memory vs.\ effector
+        sub-states. PC3 in Phase 2 separated NK/CTL genes from B cell genes,
+        placing this compartment at the cytotoxic end of that axis.
+
+  \item \textbf{Bottom isolated island (clusters 5, 9) — platelets.}
+        The most distinctly isolated cluster: completely detached, sitting at
+        the bottom of the UMAP, with a characteristic two-blob shape. PC2 in
+        Phase 2 was dominated by platelet/megakaryocyte markers
+        (\textit{CLEC1B, TUBB1, MPIG6B}). Platelets are a common contaminant
+        in PBMC preparations and always appear as a completely isolated UMAP
+        island due to the near-absence of nuclear transcriptomic signal.
+\end{itemize}
+
+\subsubsection*{Step 7b — UMAP vs t-SNE comparison}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase3/phase3_step07b_umap_vs_tsne.png}
+\end{center}
+
+Both embeddings show the same cluster structure, which validates that the 23 clusters
+are robust features of the data and not artefacts of one particular algorithm.
+
+\begin{itemize}[nosep]
+  \item \textbf{Agreement:} All major topological features — the myeloid left continent,
+        the lymphoid right continent, the isolated bottom island, and the small
+        top-centre group — are present in both plots.
+  \item \textbf{UMAP advantage:} Global distances are more meaningful. The clear
+        spatial separation between myeloid and lymphoid continents is more
+        pronounced, and cluster shapes are more compact and easier to label.
+  \item \textbf{t-SNE advantage:} The right-side T/NK mass is spread out more,
+        making the internal sub-structure of the lymphoid compartment slightly
+        easier to see at this stage. In t-SNE, clusters 6, 11, and 16 are pulled
+        further apart from the main T cell mass.
+  \item \textbf{Choice:} UMAP is used as the primary visualization going forward.
+        t-SNE is kept as a cross-check and confirmation.
+\end{itemize}
+
+\subsection{Cell-type annotation \small\normalfont\textit{(Steps 8–9)}}
+
+Two completely independent approaches are used to annotate the 23 clusters.
+If both agree, the label is credible. Where they disagree, it indicates either
+a rare cell type the reference does not cover well, or a cluster sitting in a
+transition zone between two cell types.
+
+\subsubsection*{Step 8 — Manual marker feature plots}
+
+\paragraph*{Correction from Phase 2 predictions.}
+Phase 2 produced a UMAP with no cluster labels, and the population identities
+were inferred from which genes drove PCA. Those predictions were partially wrong.
+The marker feature plots are the ground truth, and they reveal three mis-identifications
+that are important to acknowledge:
+
+\begin{itemize}[nosep]
+  \item \textbf{Left continent $\neq$ myeloid.} In Phase 2, the left side was
+        predicted to be monocytes because PC1 was dominated by monocyte genes.
+        The feature plots show the opposite: CD3D, CD3E, CD4, and CD8A are
+        concentrated in the left continent. The left continent is \textbf{lymphoid}
+        (T cells and NK cells).
+  \item \textbf{Right continent $\neq$ lymphoid.} The right-side mass is the
+        \textbf{myeloid} compartment. CD14 and LYZ light up the entire right
+        continent densely, and FCGR3A (CD16) marks a sub-region within it.
+  \item \textbf{Bottom island $\neq$ platelets.} The bottom isolated island was
+        predicted to be platelets from the PC2 platelet signal. Instead, MS4A1
+        and CD79A light up the bottom island exclusively — this is the
+        \textbf{B cell} population. The platelet signal (PPBP) appears in the
+        dot plot as cluster 14, the small scattered cluster in the transition
+        zone between the two continents.
+\end{itemize}
+
+These corrections illustrate a key principle: PCA loadings tell you what genes
+explain the most variance, but the spatial arrangement of populations in UMAP
+space is determined by the full 20-dimensional embedding, not by any single PC.
+Marker gene validation is always required.
+
+\paragraph*{Monocyte markers — CD14, LYZ, FCGR3A}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase3/phase3_step08a_markers_monocytes.png}
+\end{center}
+
+\begin{itemize}[nosep]
+  \item \textbf{LYZ} (lysozyme): The most broadly expressed monocyte marker.
+        High throughout the entire right continent, including the top-right
+        isolated island (cluster 6). LYZ is produced by virtually all monocytes
+        and macrophages. This is consistent with LYZ being the dominant gene on PC1.
+  \item \textbf{CD14}: Expressed in the central-right mass but with lower levels
+        than LYZ. CD14 is the lipopolysaccharide (LPS) co-receptor and marks
+        \textbf{classical CD14$^+$ monocytes}. The slightly more restricted
+        pattern compared to LYZ reflects the fact that non-classical monocytes
+        downregulate CD14.
+  \item \textbf{FCGR3A} (CD16): A different pattern from CD14 — high in a
+        distinct sub-region of the right continent (mid-right to upper-right) but
+        low in the central mass where CD14 is high. CD16 marks
+        \textbf{non-classical/intermediate monocytes}. The spatial separation of
+        CD14-high and FCGR3A-high cells in the UMAP suggests that the Louvain
+        clustering at res = 0.5 is genuinely separating CD14$^+$ classical
+        from CD14$^{\text{lo}}$/CD16$^+$ non-classical monocytes.
+\end{itemize}
+
+\paragraph*{T cell markers — CD3D, CD3E, CD4, CD8A}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase3/phase3_step08b_markers_tcells.png}
+\end{center}
+
+\begin{itemize}[nosep]
+  \item \textbf{CD3D and CD3E}: Both pan-T cell markers (components of the T cell
+        receptor complex) light up the entire left continent, confirming that the
+        left side is the T cell compartment. They are essentially interchangeable
+        at this resolution.
+  \item \textbf{CD4}: Restricted to the \textbf{lower-left} portion of the left
+        continent. CD4 marks T helper cells and is absent from the upper-left
+        region. The lower-left clusters (cluster 1 from the numbered UMAP) are
+        \textbf{CD4$^+$ T helper cells}.
+  \item \textbf{CD8A}: High in the \textbf{upper-left} portion of the left
+        continent, in a region that overlaps but does not fully coincide with
+        the NK cell zone. CD8$^+$ cytotoxic T cells and NK cells are
+        transcriptionally similar (both cytotoxic) and sit adjacent on the UMAP.
+        Cluster 0 (the large upper-left blob) likely mixes CD8$^+$ T and NK cells,
+        consistent with the ambiguous marker patterns.
+\end{itemize}
+
+\paragraph*{B cell markers — MS4A1 (CD20), CD79A}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase3/phase3_step08c_markers_bcells.png}
+\end{center}
+
+Both B cell markers are expressed \textbf{exclusively} in the bottom isolated island
+(clusters 5 and 9), with essentially zero expression everywhere else in the UMAP.
+This is one of the clearest patterns in the dataset — the bottom island is entirely
+B cells, and the gene markers have near-perfect specificity.
+The fact that B cells form a completely isolated UMAP island reflects their
+fundamentally different transcriptional programme compared to both myeloid and
+T/NK cells — they express immunoglobulin genes (IGHM, IGKC), CD79A/B, and MS4A1,
+none of which are expressed in other PBMC populations.
+
+\paragraph*{NK cell markers — NKG7, GNLY}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase3/phase3_step08d_markers_nk.png}
+\end{center}
+
+NKG7 and GNLY (granulysin) are expressed broadly across the \textbf{upper-left}
+portion of the left continent, the same region where CD8A is also high.
+This overlap is expected: NKG7 and GNLY are cytotoxic granule proteins expressed
+by both cytotoxic T cells and NK cells. The SingleR cross-tabulation (Step 9)
+will distinguish them by comparing the full expression profile against a reference
+rather than relying on these few genes alone.
+
+\paragraph*{Dot plot — canonical markers by cluster}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase3/phase3_step08e_dotplot_markers.png}
+\end{center}
+
+The dot plot shows all 14 canonical markers across all 23 clusters simultaneously.
+Dot size = fraction of cells in the cluster expressing the gene;
+dot colour = average scaled expression.
+Reading across each row reveals the dominant identity of each cluster:
+
+\begin{itemize}[nosep]
+  \item \textbf{Clusters 2, 6, 7, 8, 10, 11, 12, 16, 18, 19}: Large blue dots
+        for CD14 and LYZ, negligible T/B/NK markers
+        $\to$ \textbf{classical CD14$^+$ monocytes} (multiple sub-clusters).
+  \item \textbf{Cluster 8}: High FCGR3A in addition to LYZ
+        $\to$ likely \textbf{CD16$^+$ non-classical monocytes}.
+  \item \textbf{Clusters 0, 13}: High CD8A, NKG7, GNLY; minimal CD14
+        $\to$ \textbf{CD8$^+$ T cells / NK cells}.
+  \item \textbf{Cluster 1}: High CD3D, CD3E, CD4
+        $\to$ \textbf{CD4$^+$ T cells}.
+  \item \textbf{Clusters 3, 4, 20}: High NKG7, GNLY; low/absent CD3D
+        $\to$ \textbf{NK cells}.
+  \item \textbf{Clusters 5, 9}: High MS4A1, CD79A; all other markers near zero
+        $\to$ \textbf{B cells}.
+  \item \textbf{Cluster 14}: High PPBP; mixed low expression of other markers
+        $\to$ \textbf{platelets / megakaryocytes}. This is where the PC2
+        platelet signal from Phase 2 actually maps to.
+  \item \textbf{Cluster 17}: Low-level CST3 and FCER1A signal
+        $\to$ candidate \textbf{dendritic cells}.
+  \item \textbf{Clusters 15, 21}: Mixed T/NK signal
+        $\to$ likely T cell sub-states (memory, regulatory, or transitional).
+\end{itemize}
+
+\subsubsection*{Step 9 — SingleR automated annotation}
+
+SingleR compares each cell's full expression profile against the
+BlueprintEncode bulk RNA-seq reference (which contains sorted immune cell
+populations) and assigns the closest matching label to every cell independently.
+
+\paragraph*{Label distribution.}
+After annotating all 55,548 cells:
+
+\begin{center}
+\begin{tabular}{lrr}
+\hline
+\textbf{Cell type} & \textbf{Cells} & \textbf{\%} \\
+\hline
+Monocytes        & 21,385 & 38.5\% \\
+NK cells         & 11,396 & 20.5\% \\
+CD8$^+$ T-cells  & 10,471 & 18.8\% \\
+B-cells          &  6,665 & 12.0\% \\
+CD4$^+$ T-cells  &  4,990 &  9.0\% \\
+Erythrocytes     &    410 &  0.7\% \\
+HSC              &    108 &  0.2\% \\
+Neutrophils      &     71 &  0.1\% \\
+Eosinophils      &     46 &  0.1\% \\
+DC               &      5 & $<$0.1\% \\
+Endothelial cells &     1 & $<$0.1\% \\
+\hline
+\end{tabular}
+\end{center}
+
+The monocyte dominance (38.5\%) is a known hallmark of severe COVID-19 infection —
+Li et al.\ and multiple cohort studies have documented emergency myelopoiesis driving
+monocyte expansion in severe disease. NK cell enrichment (20.5\%) is also higher than
+healthy PBMC baselines, consistent with innate immune activation.
+
+The CD4$^+$ T cell count (9.0\%) is notably low compared to healthy PBMCs where
+CD4$^+$ T cells typically constitute 30--40\% of lymphocytes. This T cell depletion
+is another well-replicated feature of severe COVID-19: lymphopenia affecting preferentially
+the helper T cell compartment.
+
+The rare populations (Erythrocytes, HSC, Neutrophils, Eosinophils) are either
+contamination, uncommitted progenitors, or cells that the BlueprintEncode reference
+is forced to assign to the nearest-available label when the true cell type is absent
+from its training data.
+
+\paragraph*{UMAP coloured by SingleR labels.}
+
+\begin{center}
+  \includegraphics[width=0.95\textwidth]{plots/phase3/phase3_step09c_umap_singler.png}
+\end{center}
+
+The SingleR UMAP confirms all marker-based identifications and resolves the
+CD8$^+$ T vs NK cell ambiguity:
+
+\begin{itemize}[nosep]
+  \item \textbf{Right continent} = Monocytes (purple), filling the entire right mass
+        and the top-right isolated island (cluster 6). The spatial coherence of the
+        monocyte annotation across all right-side clusters is excellent.
+  \item \textbf{Upper-left continent} = NK cells (pink) dominating the upper portion;
+        CD8$^+$ T-cells (olive) occupying the middle of the left continent.
+  \item \textbf{Lower-left continent} = CD4$^+$ T-cells (orange/gold) in the
+        lower-left pocket — cleanly separated from both NK and CD8$^+$ populations.
+  \item \textbf{Bottom island} = B-cells (salmon/pink), completely isolated, confirming
+        the MS4A1/CD79A feature plot result. Both cluster 5 and cluster 9 are
+        overwhelmingly B cells.
+  \item \textbf{Center transition zone (cluster 14)} = a mixed cluster of Erythrocytes,
+        HSC, Eosinophils, Neutrophils, and Monocytes — this is the ``garbage bin''
+        cluster for cells that don't fit cleanly into any major population.
+        The PPBP (platelet) signal from the dot plot also maps here.
+  \item \textbf{Top-centre isolated group} = mixed CD8$^+$ T and NK cells
+        (the green DC dots are from the 5 DC-labelled cells in the dataset).
+\end{itemize}
+
+\paragraph*{dittoSeq UMAP.}
+
+\begin{center}
+  \includegraphics[width=0.95\textwidth]{plots/phase3/phase3_step09d_ditto_umap.png}
+\end{center}
+
+The dittoSeq plot (which uses a color-blind-friendly palette and a slightly different
+layout algorithm) confirms the same overall structure. The clean agreement between
+the standard \texttt{DimPlot} and the dittoSeq plot rules out any color mapping
+artefact: the population assignments are robust.
+
+\paragraph*{Cross-tabulation — clusters vs SingleR labels.}
+
+The cross-tabulation shows how many cells of each SingleR type fall in each
+graph-based cluster. The ideal result is that each cluster is dominated by a
+single cell type (high purity). The results:
+
+\begin{itemize}[nosep]
+  \item \textbf{Pure clusters ($>$95\% one type):}
+        Clusters 2, 5, 6, 7, 9, 10, 11, 12, 16, 18, 19 (monocytes);
+        clusters 3, 4, 20 (NK cells); clusters 5, 9 (B cells, 100\%).
+        This is the expected result for well-chosen resolution — the
+        algorithm found real biological boundaries.
+  \item \textbf{Mixed clusters:}
+        Cluster 0 (CD8$^+$ + NK: 6669 vs 1151) and cluster 13 (CD8$^+$ + NK:
+        1012 vs 324) reflect the transcriptional similarity between CD8$^+$ T cells
+        and NK cells — both are cytotoxic and express similar granule genes.
+        Cluster 1 (CD4$^+$ + CD8$^+$: 4853 vs 1892) suggests a transition zone
+        between the two T cell sub-populations.
+  \item \textbf{Cluster 14 — the heterogeneous cluster:}
+        Monocytes (338), CD8$^+$ T (167), NK (144), Erythrocytes (318), HSC (58),
+        Eosinophils (46). This cluster sits in the UMAP transition zone between
+        the two continents. It captures cells that are transcriptionally
+        intermediate — likely a mix of contaminating non-lymphoid cells
+        (red blood cells, platelet-associated cells) and cells in transitional states.
+        In downstream Phase 4 analysis, monocytes will be isolated by the
+        \texttt{singler\_main == "Monocytes"} label, so cluster 14 contamination
+        will be correctly excluded.
+\end{itemize}
+
+\paragraph*{Overall assessment.}
+The manual marker approach and SingleR agree on all major populations.
+The five main PBMC compartments are all present and correctly localized:
+monocytes (right), NK cells (upper-left), CD8$^+$ T cells (middle-left),
+CD4$^+$ T cells (lower-left), B cells (bottom island).
+The enrichment pattern — monocyte-dominant, CD4$^+$ T cell-depleted — is
+consistent with published COVID-19 PBMC immunophenotypes.
+
 \subsection{Find cluster-defining markers \small\normalfont\textit{(Step 10)}}
-\texttt{FindAllMarkers()} runs a differential expression test comparing each
-cluster against all other cells, returning the genes that best define each
-cluster. The top 5 markers per cluster are shown in a heatmap and a table.
+
+\texttt{FindAllMarkers()} compares each cluster against all remaining cells
+using the Wilcoxon rank-sum test, asking: which genes are expressed at a
+significantly higher level in this cluster than everywhere else?
+A gene passes the filter if it is detected in $\geq$25\% of cells in the
+cluster (\texttt{min.pct = 0.25}) and shows at least a 2-fold difference
+(\texttt{logfc.threshold = 0.5} on the log$_2$ scale).
+\textbf{6,739 markers} were found across all 23 clusters, all with adjusted
+p-value = 0 (exact zeros arise because the values underflow floating-point
+precision — in practice these are extremely small numbers, far below 0.001).
+
+Due to the 16 GB memory constraint on this machine, \texttt{FindAllMarkers}
+was run on a downsampled object (300 cells per cluster; 6,513 cells total
+drawn with \texttt{set.seed(42)}). The same variable features (3,000 genes)
+from the full object were used. At 300 cells per cluster the statistical
+power is sufficient to recover all highly expressed, cluster-specific markers.
+
+\subsubsection*{Heatmap — top 5 markers per cluster}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase3/phase3_step10a_marker_heatmap.png}
+\end{center}
+
+Yellow = high expression; purple = low or absent.
+Each column block is one cluster; each row is one gene.
+A good marker produces a bright yellow stripe in exactly one cluster and is
+dark everywhere else.
+The heatmap shows clean diagonal structure: most genes are specific to one
+cluster, confirming high cluster purity and biologically meaningful separation.
+
+\subsubsection*{Cluster identity table (from top-5 markers)}
+
+Reading the marker genes for each cluster and cross-referencing with the
+literature gives the following cell-type assignments:
+
+\begin{center}
+\small
+\begin{tabular}{cll}
+\hline
+\textbf{Cluster} & \textbf{Cell type} & \textbf{Key markers} \\
+\hline
+0  & CD8$^+$ T cells (effector memory) & GZMK, CD8A, CD8B, RGS1 \\
+1  & Naive / central-memory CD4$^+$ T & LEF1, CD28, MAL, NELL2 \\
+2  & Monocyte sub-cluster & TMEM176A, ALDH1A1 \\
+3  & NK cells                           & TMIGD2, SH2D1B, AKR1C3 \\
+4  & NK / $\gamma\delta$ T cells        & KLRC2, TRDC, KIR3DL2, KLRF1 \\
+5  & Naive B cells                      & TCL1A, IGHD, FCER2, FCRL1 \\
+6  & Inflammatory monocytes             & CXCL2, CXCL3, TMEM176A/B \\
+7  & IL-1$\beta$$^+$ monocytes (inflammasome-active) & IL1B, PTGS2, OSM \\
+8  & Non-classical (CD16$^+$) monocytes & CDKN1C, C1QA, CKB \\
+9  & Memory B cells                     & TNFRSF13B, FCRL2, BLK \\
+10 & ISG-high monocytes                 & SIGLEC1, IFI44L, FOLR3 \\
+11 & Stress-response / early-activation monocytes & EGR1, FOS, RHOB \\
+12 & Mature/tissue-like monocytes       & PLA2G7, FGL2, FOLR3 \\
+13 & CD8$^+$ T / $\gamma\delta$ T cells & CD8A, CD8B, TRAC, TRGC2 \\
+14 & Platelets / megakaryocytes         & PTCRA, ESAM, TMEM40, AQP10 \\
+15 & Proliferating cells (S phase)      & TYMS, CDC45, CDC6, CDT1, PCLAF \\
+16 & Immature / emergency monocytes     & HP, RETN, SERPINB2 \\
+17 & Dendritic cells (cDC2 / pDC)       & FCER1A, ENHO, SERPINF1 \\
+18 & CXCL10$^+$/CCL2$^+$ monocytes (IFN-chemokine) & CCL2, CXCL10, PTX3 \\
+19 & Immunosuppressive / resident-like monocytes & VSIG4, IL1R2, RNASE1 \\
+20 & Cytotoxic NK cells                 & PRF1, KIR2DL3, KLRC1, LAIR2 \\
+21 & CD4$^+$ Tregs / activated CD4$^+$ T & IL2RA (CD25), TNFRSF4 (OX40) \\
+22 & Erythrocytes (contamination)       & GYPA, GYPB, SPTA1 \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsubsection*{Biologically noteworthy clusters}
+
+Several clusters stand out as directly relevant to the COVID-19 biology:
+
+\begin{itemize}[nosep]
+  \item \textbf{Cluster 7 — IL-1$\beta^+$ monocytes:}
+        The top marker is \textit{IL1B} (avg log$_2$FC = 3.37, expressed in
+        90\% of cells in this cluster vs 23\% everywhere else).
+        \textit{PTGS2} (COX-2) and \textit{OSM} (oncostatin M) follow.
+        IL-1$\beta$, COX-2, and OSM together define a fully activated
+        inflammasome program — this is the stereotypic severe-COVID
+        hyper-inflammatory monocyte state. This cluster is critically
+        important for Phase 4.
+
+  \item \textbf{Cluster 10 — ISG-high monocytes:}
+        \textit{SIGLEC1} (CD169) at log$_2$FC = 3.32 is the canonical marker
+        of type-I interferon-stimulated monocytes. \textit{IFI44L} (IFN-induced
+        protein 44-like) confirms the interferon signature.
+        SIGLEC1$^+$ monocytes are specifically expanded in severe COVID-19
+        and are a known indicator of systemic interferon activation.
+
+  \item \textbf{Cluster 18 — CCL2$^+$/CXCL10$^+$ monocytes:}
+        \textit{CCL2} (MCP-1) and \textit{CXCL10} (IP-10/CXCL10) are the
+        two most upregulated chemokines in severe COVID-19 plasma.
+        Their expression at the single-cell level in this cluster identifies
+        the specific monocyte sub-population responsible for secreting
+        the inflammatory chemokine storm. \textit{PTX3} (pentraxin-3),
+        also a top marker here, is an acute-phase protein produced by
+        activated monocytes and known to be elevated in ICU-COVID patients.
+
+  \item \textbf{Cluster 15 — Proliferating cells:}
+        TYMS, CDC45, CDC6, CDT1, PCLAF are all S-phase DNA replication
+        genes. This cluster captures immune cells actively dividing —
+        consistent with emergency myelopoiesis (monocyte precursors
+        proliferating in the bone marrow and spilling into blood)
+        reported in severe COVID.
+
+  \item \textbf{Cluster 22 — Erythrocytes:}
+        log$_2$FC of 13.7 for \textit{GYPA} with only 0.0\% expression in
+        all other cells is clean contamination. These are red blood cells
+        that were not fully removed by the PBMC density gradient.
+        They will not be included in the monocyte subset for Phase 4.
+
+  \item \textbf{Cluster 21 — Tregs:}
+        \textit{IL2RA} (CD25) and \textit{TNFRSF4} (OX40) together are a
+        strong Treg signature. CD25$^+$OX40$^+$ T cells are regulatory T cells.
+        Their presence at relatively low numbers is consistent with the known
+        COVID-19 pattern of Treg dysfunction.
+\end{itemize}
+
+\subsection{Phase 3 conclusion}
+
+Phase 3 successfully identified and annotated all major PBMC populations.
+The 23 clusters at resolution 0.5 span a rich diversity of cell states:
+
+\begin{itemize}[nosep]
+  \item \textbf{Myeloid:} 10 monocyte sub-clusters covering classical,
+        non-classical, inflammatory (IL-1$\beta^+$), ISG-high, chemokine-secreting,
+        immunosuppressive, and immature monocyte states — reflecting the
+        complexity of monocyte dysregulation in COVID-19.
+  \item \textbf{Lymphoid:} CD8$^+$ effector memory T cells, naive and central
+        memory CD4$^+$ T cells, cytotoxic NK cells, $\gamma\delta$ T cells,
+        and Tregs.
+  \item \textbf{B cells:} Naive B cells (cluster 5) and memory B cells (cluster 9).
+  \item \textbf{Other:} Dendritic cells, proliferating cells, and two
+        contamination clusters (platelets/cluster 14, erythrocytes/cluster 22).
+\end{itemize}
+
+The annotated object is saved to \texttt{Data/phase3\_seurat\_annotated.rds}
+and the full marker table to \texttt{Data/phase3\_all\_markers.csv}
+for use in Phase 4.
 
 % ─────────────────────────────────────────────
 \section{Phase 4 — CD14\textsuperscript{+} Monocyte Deep-Dive}
