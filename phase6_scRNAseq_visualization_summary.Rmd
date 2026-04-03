@@ -1,0 +1,325 @@
+---
+title: "Phase 6 – scRNA-seq Visualization Summary"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Goal
+
+This document implements **Phase 6** of the project workflow:
+
+Compile all key scRNA-seq visualizations from Phases 3–5 into a single
+publication-ready summary document. Every plot is saved to `plots/phase6/`.
+
+---
+
+## 1. Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(Seurat)
+library(tidyverse)
+library(patchwork)
+library(EnhancedVolcano)
+library(ggrepel)
+library(RColorBrewer)
+library(pheatmap)
+
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 12,
+  fig.height = 7
+)
+
+dir.create("plots/phase6", showWarnings = FALSE, recursive = TRUE)
+```
+
+---
+
+## 2. Load Phase 3–5 outputs
+
+```{r load-data}
+# ── Phase 3 outputs ──
+seurat  <- readRDS("Data/phase3_seurat_annotated.rds")
+markers <- read.csv("Data/phase3_all_markers.csv", row.names = 1)
+
+cat("Phase 3 Seurat object:", ncol(seurat), "cells,", nrow(seurat), "genes\n")
+
+# ── Phase 4 outputs ──
+seurat_sev  <- readRDS("Data/phase4_seurat_with_severity.rds")
+mono        <- readRDS("Data/phase4_monocytes.rds")
+mono_de     <- read.csv("Data/phase4_mono_de_severe_vs_healthy.csv", row.names = 1)
+donor_summary <- read.csv("Data/phase4_donor_summary.csv", row.names = 1)
+
+cat("Phase 4 monocytes:", ncol(mono), "cells\n")
+cat("Phase 4 DE genes:", nrow(mono_de), "\n")
+
+# ── Phase 5 outputs ──
+rep_mono <- readRDS("Data/phase5_GSE150861_monocytes.rds")
+coact_longitudinal <- read.csv("Data/phase5_coactivation_longitudinal.csv",
+                               row.names = 1)
+
+cat("Phase 5 replication monocytes:", ncol(rep_mono), "cells\n")
+```
+
+---
+
+## 3. Plot 1 — UMAP by cell type (overview of PBMC populations in GSE149689)
+
+```{r umap-celltype, fig.width=10, fig.height=7}
+p1 <- DimPlot(seurat_sev, group.by = "singler_main", reduction = "umap",
+              label = TRUE, repel = TRUE, pt.size = 0.3) +
+  ggtitle("GSE149689 — UMAP coloured by cell type (SingleR)") +
+  theme(legend.position = "right")
+
+print(p1)
+
+ggsave("plots/phase6/phase6_01_umap_celltype.png", p1,
+       width = 10, height = 7, dpi = 300)
+```
+
+---
+
+## 4. Plot 2 — UMAP split by severity
+
+```{r umap-severity, fig.width=16, fig.height=5}
+p2 <- DimPlot(seurat_sev, group.by = "singler_main", split.by = "severity",
+              reduction = "umap", label = FALSE, pt.size = 0.1) +
+  ggtitle("Cell types split by severity group")
+
+print(p2)
+
+ggsave("plots/phase6/phase6_02_umap_split_severity.png", p2,
+       width = 16, height = 5, dpi = 300)
+```
+
+---
+
+## 5. Plot 3 — Feature plots: ISG genes on UMAP
+
+```{r feature-isg, fig.width=15, fig.height=5}
+isg_genes <- c("ISG15", "IFIT1", "MX1")
+
+p3 <- FeaturePlot(seurat_sev, features = isg_genes, reduction = "umap",
+                  ncol = 3, pt.size = 0.1, order = TRUE) &
+  scale_colour_viridis_c() &
+  theme_minimal()
+
+print(p3)
+
+ggsave("plots/phase6/phase6_03_feature_ISG.png", p3,
+       width = 15, height = 5, dpi = 300)
+```
+
+---
+
+## 6. Plot 4 — Feature plots: TNF/IL-1β genes on UMAP
+
+```{r feature-tnf, fig.width=15, fig.height=5}
+tnf_genes <- c("TNF", "IL1B", "CCL3")
+
+p4 <- FeaturePlot(seurat_sev, features = tnf_genes, reduction = "umap",
+                  ncol = 3, pt.size = 0.1, order = TRUE) &
+  scale_colour_viridis_c() &
+  theme_minimal()
+
+print(p4)
+
+ggsave("plots/phase6/phase6_04_feature_TNF_IL1.png", p4,
+       width = 15, height = 5, dpi = 300)
+```
+
+---
+
+## 7. Plot 5 — Violin plots: module scores by severity (monocytes)
+
+```{r violin-scores, fig.width=12, fig.height=5}
+# Violin for ISG score
+v_isg <- VlnPlot(mono, features = "ISG_score1", group.by = "severity",
+                 pt.size = 0) +
+  ggtitle("ISG module score — monocytes") +
+  xlab("Severity") + ylab("ISG score") +
+  NoLegend()
+
+# Violin for TNF/IL-1β score
+v_tnf <- VlnPlot(mono, features = "TNF_IL1_score1", group.by = "severity",
+                 pt.size = 0) +
+  ggtitle("TNF/IL-1β module score — monocytes") +
+  xlab("Severity") + ylab("TNF/IL-1β score") +
+  NoLegend()
+
+p5 <- v_isg | v_tnf
+
+print(p5)
+
+ggsave("plots/phase6/phase6_05_violin_module_scores.png", p5,
+       width = 12, height = 5, dpi = 300)
+```
+
+---
+
+## 8. Plot 6 — Donor-level boxplot: co-activation % by severity (key figure)
+
+```{r donor-boxplot, fig.width=8, fig.height=6}
+p6 <- ggplot(donor_summary, aes(x = severity, y = pct_coactivated,
+                                fill = severity)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+  geom_jitter(width = 0.15, size = 3, alpha = 0.8) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Co-activated monocyte percentage per donor",
+       subtitle = "ISG score > 0 AND TNF/IL-1β score > 0",
+       x = "Severity group",
+       y = "% co-activated monocytes") +
+  theme_classic(base_size = 14) +
+  theme(legend.position = "none")
+
+print(p6)
+
+ggsave("plots/phase6/phase6_06_donor_coactivation_boxplot.png", p6,
+       width = 8, height = 6, dpi = 300)
+```
+
+---
+
+## 9. Plot 7 — Volcano plot: monocyte DE (severe vs healthy)
+
+```{r volcano, fig.width=10, fig.height=8}
+p7 <- EnhancedVolcano(mono_de,
+                      lab = rownames(mono_de),
+                      x   = "avg_log2FC",
+                      y   = "p_val_adj",
+                      title    = "Monocyte DE: Severe COVID vs Healthy",
+                      subtitle = "Wilcoxon rank-sum test",
+                      pCutoff  = 0.05,
+                      FCcutoff = 0.5,
+                      pointSize = 1.5,
+                      labSize   = 4,
+                      drawConnectors = TRUE,
+                      widthConnectors = 0.3,
+                      maxoverlapsConnectors = 20)
+
+print(p7)
+
+ggsave("plots/phase6/phase6_07_volcano_monocyte_DE.png", p7,
+       width = 10, height = 8, dpi = 300)
+```
+
+---
+
+## 10. Plot 8 — Marker heatmap: top 5 markers per cluster
+
+```{r marker-heatmap, fig.width=14, fig.height=10}
+top5 <- markers %>%
+  group_by(cluster) %>%
+  top_n(n = 5, wt = avg_log2FC) %>%
+  ungroup()
+
+# Downsample for heatmap rendering
+set.seed(42)
+cells_sub <- seurat[, sample(ncol(seurat),
+                             min(ncol(seurat), 5000))]
+
+p8 <- DoHeatmap(cells_sub, features = top5$gene, group.by = "seurat_clusters",
+                size = 3) +
+  ggtitle("Top 5 markers per cluster (downsampled)") +
+  theme(axis.text.y = element_text(size = 6))
+
+print(p8)
+
+ggsave("plots/phase6/phase6_08_marker_heatmap.png", p8,
+       width = 14, height = 10, dpi = 300)
+```
+
+---
+
+## 11. Plot 9 — Cell-type composition barplot by severity
+
+```{r composition-barplot, fig.width=10, fig.height=6}
+comp <- seurat_sev@meta.data %>%
+  count(severity, singler_main) %>%
+  group_by(severity) %>%
+  mutate(pct = n / sum(n) * 100)
+
+p9 <- ggplot(comp, aes(x = severity, y = pct, fill = singler_main)) +
+  geom_col(position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Set3") +
+  labs(title = "Cell-type composition by severity",
+       x = "Severity group", y = "Proportion",
+       fill = "Cell type") +
+  theme_classic(base_size = 13)
+
+print(p9)
+
+ggsave("plots/phase6/phase6_09_composition_barplot.png", p9,
+       width = 10, height = 6, dpi = 300)
+```
+
+---
+
+## 12. Plot 10 — GSE150861 replication: co-activation scatter
+
+```{r replication-scatter, fig.width=10, fig.height=6}
+rep_df <- rep_mono@meta.data %>%
+  select(ISG_score1, TNF_IL1_score1, time_point, patient)
+
+p10 <- ggplot(rep_df, aes(x = ISG_score1, y = TNF_IL1_score1,
+                          colour = time_point)) +
+  geom_point(size = 0.5, alpha = 0.4) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40") +
+  facet_wrap(~ patient, ncol = 2) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(title = "GSE150861 replication — monocyte co-activation scatter",
+       subtitle = "Upper-right quadrant = co-activated (ISG > 0 AND TNF/IL-1β > 0)",
+       x = "ISG module score",
+       y = "TNF/IL-1β module score",
+       colour = "Time point") +
+  theme_bw(base_size = 12)
+
+print(p10)
+
+ggsave("plots/phase6/phase6_10_replication_coactivation.png", p10,
+       width = 10, height = 6, dpi = 300)
+```
+
+---
+
+## 13. Summary panel — key figures combined
+
+```{r summary-panel, fig.width=20, fig.height=12}
+# Combine the four most important figures into one panel
+panel <- (p1 | p6) / (p7 | p10) +
+  plot_annotation(
+    title    = "scRNA-seq Analysis Summary — COVID-19 Monocyte Co-Activation",
+    subtitle = "GSE149689 (discovery) + GSE150861 (replication)",
+    tag_levels = "A"
+  )
+
+print(panel)
+
+ggsave("plots/phase6/phase6_summary_panel.png", panel,
+       width = 20, height = 12, dpi = 300)
+```
+
+---
+
+## Decision Checkpoint 6
+
+> **Summary of key findings visualized:**
+>
+> 1.
+> 2.
+> 3.
+>
+> (Fill in after rendering.)
+
+---
+
+## Session info
+
+```{r session-info}
+sessionInfo()
+```
