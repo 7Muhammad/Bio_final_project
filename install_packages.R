@@ -3,9 +3,6 @@ user_lib <- Sys.getenv("R_LIBS_USER")
 dir.create(user_lib, recursive = TRUE, showWarnings = FALSE)
 .libPaths(user_lib)
 
-# Fix download method for Windows
-options(download.file.method = "wininet")
-
 # CRAN packages
 install.packages(c(
   "Seurat",
