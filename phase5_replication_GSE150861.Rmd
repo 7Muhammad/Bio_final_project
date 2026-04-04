@@ -36,6 +36,8 @@ knitr::opts_chunk$set(
   fig.width  = 10,
   fig.height = 6
 )
+
+dir.create("plots/phase5", showWarnings = FALSE, recursive = TRUE)
 ```
 
 ---
@@ -104,9 +106,11 @@ rep_seurat[["percent.mt"]] <- PercentageFeatureSet(rep_seurat, pattern = "^MT-")
 ### 4a. QC violin plots
 
 ```{r qc-violin, fig.width=12, fig.height=4}
-VlnPlot(rep_seurat,
+p <- VlnPlot(rep_seurat,
         features = c("nFeature_RNA", "nCount_RNA", "percent.mt"),
         ncol = 3, pt.size = 0)
+print(p)
+ggsave("plots/phase5/phase5_qc_violin.png", p, width = 12, height = 4, dpi = 300)
 ```
 
 ### 4b. QC scatter plots
@@ -114,7 +118,9 @@ VlnPlot(rep_seurat,
 ```{r qc-scatter, fig.width=12, fig.height=4}
 p1 <- FeatureScatter(rep_seurat, feature1 = "nCount_RNA", feature2 = "percent.mt") + NoLegend()
 p2 <- FeatureScatter(rep_seurat, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") + NoLegend()
-p1 + p2
+p <- p1 + p2
+print(p)
+ggsave("plots/phase5/phase5_qc_scatter.png", p, width = 12, height = 4, dpi = 300)
 ```
 
 ### 4c. Filter cells
@@ -157,8 +163,10 @@ rep_seurat <- RunPCA(rep_seurat, verbose = FALSE)
 ```
 
 ```{r elbow, fig.width=8, fig.height=4}
-ElbowPlot(rep_seurat, ndims = 30) +
+p <- ElbowPlot(rep_seurat, ndims = 30) +
   geom_vline(xintercept = N_PCS, linetype = "dashed", color = "red")
+print(p)
+ggsave("plots/phase5/phase5_elbow_plot.png", p, width = 8, height = 4, dpi = 300)
 ```
 
 ```{r umap-cluster}
@@ -174,7 +182,9 @@ p2 <- DimPlot(rep_seurat, reduction = "umap", group.by = "patient") +
   ggtitle("Patient")
 p3 <- DimPlot(rep_seurat, reduction = "umap", group.by = "day_label") +
   ggtitle("Time point")
-p1 + p2 + p3
+p <- p1 + p2 + p3
+print(p)
+ggsave("plots/phase5/phase5_umap_overview.png", p, width = 14, height = 5, dpi = 300)
 ```
 
 ---
@@ -189,7 +199,9 @@ markers <- c("CD14", "LYZ", "FCGR3A",          # Monocytes
              "MS4A1", "CD79A",                    # B cells
              "NKG7", "GNLY",                      # NK cells
              "FCER1A", "CST3")                    # DCs
-FeaturePlot(rep_seurat, features = markers, reduction = "umap", ncol = 4)
+p <- FeaturePlot(rep_seurat, features = markers, reduction = "umap", ncol = 4)
+print(p)
+ggsave("plots/phase5/phase5_marker_featureplots.png", p, width = 16, height = 12, dpi = 300)
 ```
 
 ### 7b. SingleR annotation
@@ -213,9 +225,11 @@ print(sort(table(rep_seurat$singler_main), decreasing = TRUE))
 ### 7c. UMAP by cell type
 
 ```{r umap-celltype, fig.width=12, fig.height=7}
-DimPlot(rep_seurat, group.by = "singler_main", reduction = "umap",
+p <- DimPlot(rep_seurat, group.by = "singler_main", reduction = "umap",
         label = TRUE, repel = TRUE) +
-  ggtitle("GSE150861 — Cell-type annotation (SingleR)")
+  ggtitle("GSE150861 \u2014 Cell-type annotation (SingleR)")
+print(p)
+ggsave("plots/phase5/phase5_umap_celltype.png", p, width = 12, height = 7, dpi = 300)
 ```
 
 ---
@@ -263,16 +277,18 @@ rep_mono$TNF_IL1_score <- rep_mono$TNF_IL11
 df <- rep_mono@meta.data %>%
   select(ISG_score, TNF_IL1_score, patient, day_label, day)
 
-ggplot(df, aes(x = ISG_score, y = TNF_IL1_score, color = day_label)) +
+p <- ggplot(df, aes(x = ISG_score, y = TNF_IL1_score, color = day_label)) +
   geom_point(size = 0.5, alpha = 0.5) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
   scale_color_brewer(palette = "Set1") +
-  labs(x = "ISG module score", y = "TNF/IL-1β module score",
-       title = "Replication: ISG vs TNF/IL-1β in GSE150861 monocytes",
+  labs(x = "ISG module score", y = "TNF/IL-1\u03b2 module score",
+       title = "Replication: ISG vs TNF/IL-1\u03b2 in GSE150861 monocytes",
        color = "Time point") +
   theme_minimal() +
   facet_wrap(~ patient)
+print(p)
+ggsave("plots/phase5/phase5_coactivation_scatter.png", p, width = 12, height = 6, dpi = 300)
 ```
 
 ---
@@ -325,7 +341,9 @@ p3 <- ggplot(coact_by_time, aes(x = day, y = mean_TNF_IL1,
        title = "TNF/IL-1β score over time") +
   theme_minimal()
 
-p1 + p2 + p3
+p <- p1 + p2 + p3
+print(p)
+ggsave("plots/phase5/phase5_longitudinal_dynamics.png", p, width = 12, height = 5, dpi = 300)
 ```
 
 ---
@@ -340,7 +358,9 @@ p1 <- VlnPlot(rep_mono, features = "ISG_score", group.by = "day_label",
 p2 <- VlnPlot(rep_mono, features = "TNF_IL1_score", group.by = "day_label",
                pt.size = 0) +
   ggtitle("TNF/IL-1β score by time point") + NoLegend()
-p1 + p2
+p <- p1 + p2
+print(p)
+ggsave("plots/phase5/phase5_toci_violin.png", p, width = 12, height = 5, dpi = 300)
 ```
 
 ### 12a. Statistical test: Day 1 vs later
@@ -382,11 +402,11 @@ print(fisher.test(mat))
 
 ```{r composition-time, fig.width=12, fig.height=6}
 comp <- rep_seurat@meta.data %>%
-  count(day_label, patient, singler_main) %>%
+  dplyr::count(day_label, patient, singler_main) %>%
   group_by(day_label, patient) %>%
   mutate(pct = n / sum(n) * 100)
 
-ggplot(comp, aes(x = day_label, y = pct, fill = singler_main)) +
+p <- ggplot(comp, aes(x = day_label, y = pct, fill = singler_main)) +
   geom_col(position = "fill") +
   scale_y_continuous(labels = scales::percent) +
   facet_wrap(~ patient) +
@@ -394,6 +414,8 @@ ggplot(comp, aes(x = day_label, y = pct, fill = singler_main)) +
        title = "Cell-type composition over time (GSE150861)") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(p)
+ggsave("plots/phase5/phase5_composition_time.png", p, width = 12, height = 6, dpi = 300)
 ```
 
 ---

@@ -43,23 +43,22 @@ dir.create("plots/phase6", showWarnings = FALSE, recursive = TRUE)
 ```{r load-data}
 # ── Phase 3 outputs ──
 seurat  <- readRDS("Data/phase3_seurat_annotated.rds")
-markers <- read.csv("Data/phase3_all_markers.csv", row.names = 1)
+markers <- read.csv("Data/phase3_all_markers.csv")
 
 cat("Phase 3 Seurat object:", ncol(seurat), "cells,", nrow(seurat), "genes\n")
 
 # ── Phase 4 outputs ──
 seurat_sev  <- readRDS("Data/phase4_seurat_with_severity.rds")
 mono        <- readRDS("Data/phase4_monocytes.rds")
-mono_de     <- read.csv("Data/phase4_mono_de_severe_vs_healthy.csv", row.names = 1)
-donor_summary <- read.csv("Data/phase4_donor_summary.csv", row.names = 1)
+mono_de     <- read.csv("Data/phase4_mono_de_severe_vs_healthy.csv")
+donor_summary <- read.csv("Data/phase4_donor_summary.csv")
 
 cat("Phase 4 monocytes:", ncol(mono), "cells\n")
 cat("Phase 4 DE genes:", nrow(mono_de), "\n")
 
 # ── Phase 5 outputs ──
 rep_mono <- readRDS("Data/phase5_GSE150861_monocytes.rds")
-coact_longitudinal <- read.csv("Data/phase5_coactivation_longitudinal.csv",
-                               row.names = 1)
+coact_longitudinal <- read.csv("Data/phase5_coactivation_longitudinal.csv")
 
 cat("Phase 5 replication monocytes:", ncol(rep_mono), "cells\n")
 ```
@@ -137,14 +136,14 @@ ggsave("plots/phase6/phase6_04_feature_TNF_IL1.png", p4,
 
 ```{r violin-scores, fig.width=12, fig.height=5}
 # Violin for ISG score
-v_isg <- VlnPlot(mono, features = "ISG_score1", group.by = "severity",
+v_isg <- VlnPlot(mono, features = "ISG_score", group.by = "severity",
                  pt.size = 0) +
   ggtitle("ISG module score — monocytes") +
   xlab("Severity") + ylab("ISG score") +
   NoLegend()
 
 # Violin for TNF/IL-1β score
-v_tnf <- VlnPlot(mono, features = "TNF_IL1_score1", group.by = "severity",
+v_tnf <- VlnPlot(mono, features = "TNF_IL1_score", group.by = "severity",
                  pt.size = 0) +
   ggtitle("TNF/IL-1β module score — monocytes") +
   xlab("Severity") + ylab("TNF/IL-1β score") +
@@ -186,6 +185,11 @@ ggsave("plots/phase6/phase6_06_donor_coactivation_boxplot.png", p6,
 ## 9. Plot 7 — Volcano plot: monocyte DE (severe vs healthy)
 
 ```{r volcano, fig.width=10, fig.height=8}
+# Restore gene names as row names if loaded without row.names
+if ("X" %in% colnames(mono_de)) {
+  rownames(mono_de) <- mono_de$X
+}
+
 p7 <- EnhancedVolcano(mono_de,
                       lab = rownames(mono_de),
                       x   = "avg_log2FC",
@@ -238,7 +242,7 @@ ggsave("plots/phase6/phase6_08_marker_heatmap.png", p8,
 
 ```{r composition-barplot, fig.width=10, fig.height=6}
 comp <- seurat_sev@meta.data %>%
-  count(severity, singler_main) %>%
+  dplyr::count(severity, singler_main) %>%
   group_by(severity) %>%
   mutate(pct = n / sum(n) * 100)
 
@@ -263,10 +267,10 @@ ggsave("plots/phase6/phase6_09_composition_barplot.png", p9,
 
 ```{r replication-scatter, fig.width=10, fig.height=6}
 rep_df <- rep_mono@meta.data %>%
-  select(ISG_score1, TNF_IL1_score1, time_point, patient)
+  select(ISG_score, TNF_IL1_score, day_label, patient)
 
-p10 <- ggplot(rep_df, aes(x = ISG_score1, y = TNF_IL1_score1,
-                          colour = time_point)) +
+p10 <- ggplot(rep_df, aes(x = ISG_score, y = TNF_IL1_score,
+                          colour = day_label)) +
   geom_point(size = 0.5, alpha = 0.4) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
   geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40") +

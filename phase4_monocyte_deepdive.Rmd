@@ -34,6 +34,8 @@ knitr::opts_chunk$set(
   fig.width  = 10,
   fig.height = 6
 )
+
+dir.create("plots/phase4", showWarnings = FALSE, recursive = TRUE)
 ```
 
 ---
@@ -95,10 +97,10 @@ suffix_to_severity <- c(
 barcodes <- colnames(seurat)
 suffixes <- sub(".*-", "", barcodes)
 
-seurat$sample    <- suffix_to_sample[suffixes]
-seurat$condition <- suffix_to_condition[suffixes]
-seurat$severity  <- suffix_to_severity[suffixes]
-seurat$donor     <- suffix_to_sample[suffixes]   # donor = sample in this dataset
+seurat$sample    <- unname(suffix_to_sample[suffixes])
+seurat$condition <- unname(suffix_to_condition[suffixes])
+seurat$severity  <- unname(suffix_to_severity[suffixes])
+seurat$donor     <- unname(suffix_to_sample[suffixes])   # donor = sample in this dataset
 
 # Set severity as ordered factor
 seurat$severity <- factor(seurat$severity,
@@ -113,25 +115,29 @@ print(tapply(seurat$donor, seurat$severity, function(x) length(unique(x))))
 ### 3a. UMAP split by severity
 
 ```{r umap-severity, fig.width=16, fig.height=5}
-DimPlot(seurat, group.by = "singler_main", split.by = "severity",
+p <- DimPlot(seurat, group.by = "singler_main", split.by = "severity",
         reduction = "umap", label = FALSE, pt.size = 0.1) +
   ggtitle("Cell types split by severity")
+print(p)
+ggsave("plots/phase4/phase4_umap_split_severity.png", p, width = 16, height = 5, dpi = 300)
 ```
 
 ### 3b. Cell-type composition by severity
 
 ```{r composition-barplot, fig.width=10, fig.height=6}
 comp <- seurat@meta.data %>%
-  count(severity, singler_main) %>%
+  dplyr::count(severity, singler_main) %>%
   group_by(severity) %>%
   mutate(pct = n / sum(n) * 100)
 
-ggplot(comp, aes(x = severity, y = pct, fill = singler_main)) +
+p <- ggplot(comp, aes(x = severity, y = pct, fill = singler_main)) +
   geom_col(position = "fill") +
   scale_y_continuous(labels = scales::percent) +
   labs(x = "Severity", y = "Proportion", fill = "Cell type",
        title = "Cell-type composition by severity group") +
   theme_minimal()
+print(p)
+ggsave("plots/phase4/phase4_composition_barplot.png", p, width = 10, height = 6, dpi = 300)
 ```
 
 ---
@@ -198,7 +204,7 @@ mono$TNF_IL1_score <- mono$TNF_IL11
 df <- mono@meta.data %>%
   select(ISG_score, TNF_IL1_score, severity, donor)
 
-ggplot(df, aes(x = ISG_score, y = TNF_IL1_score, color = severity)) +
+p <- ggplot(df, aes(x = ISG_score, y = TNF_IL1_score, color = severity)) +
   geom_point(size = 0.3, alpha = 0.4) +
   geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "grey40") +
@@ -209,6 +215,8 @@ ggplot(df, aes(x = ISG_score, y = TNF_IL1_score, color = severity)) +
        color = "Severity") +
   theme_minimal() +
   facet_wrap(~ severity, ncol = 2)
+print(p)
+ggsave("plots/phase4/phase4_coactivation_scatter.png", p, width = 12, height = 8, dpi = 300)
 ```
 
 ---
@@ -242,7 +250,9 @@ p1 <- VlnPlot(mono, features = "ISG_score", group.by = "severity",
                pt.size = 0) + ggtitle("ISG score by severity") + NoLegend()
 p2 <- VlnPlot(mono, features = "TNF_IL1_score", group.by = "severity",
                pt.size = 0) + ggtitle("TNF/IL-1β score by severity") + NoLegend()
-p1 + p2
+p <- p1 + p2
+print(p)
+ggsave("plots/phase4/phase4_violin_scores_severity.png", p, width = 14, height = 5, dpi = 300)
 ```
 
 ---
@@ -322,7 +332,9 @@ p3 <- ggplot(donor_summary, aes(x = severity, y = pct_coactivated, fill = severi
   labs(y = "% co-activated monocytes", title = "Co-activation per donor") +
   theme_minimal() + NoLegend()
 
-p1 + p2 + p3
+p <- p1 + p2 + p3
+print(p)
+ggsave("plots/phase4/phase4_donor_boxplots.png", p, width = 14, height = 5, dpi = 300)
 ```
 
 ---
@@ -354,7 +366,7 @@ print(head(mono_de[order(mono_de$avg_log2FC), ], 20))
 ## 14. Volcano plot
 
 ```{r volcano, fig.width=10, fig.height=8}
-EnhancedVolcano(
+p <- EnhancedVolcano(
   mono_de,
   lab        = rownames(mono_de),
   x          = "avg_log2FC",
@@ -366,6 +378,8 @@ EnhancedVolcano(
   pointSize  = 1.5,
   labSize    = 3.5
 )
+print(p)
+ggsave("plots/phase4/phase4_volcano_monocyte_DE.png", p, width = 10, height = 8, dpi = 300)
 ```
 
 ---
