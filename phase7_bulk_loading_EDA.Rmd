@@ -1,0 +1,345 @@
+---
+title: "Phase 7 – GSE152418 Bulk RNA-seq Data Loading & EDA"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Goal
+
+This document implements **Phase 7** — loading and exploring the bulk RNA-seq
+dataset GSE152418 (Arunachalam et al., Science 2020). This dataset contains
+whole-blood RNA-seq from COVID-19 patients of varying severity plus healthy
+controls. We will:
+
+1. Load the raw count matrix and sample metadata
+2. Clean and define severity groups
+3. Inspect group sizes, gender balance, and missing data
+4. Filter low-count genes
+5. Align and verify count matrix with metadata
+
+---
+
+## 1. Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(DESeq2)
+library(pheatmap)
+library(GEOquery)
+library(org.Hs.eg.db)
+
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 10,
+  fig.height = 6
+)
+
+dir.create("plots/phase7", showWarnings = FALSE, recursive = TRUE)
+```
+
+---
+
+## 2. Load the raw count matrix
+
+```{r load-counts}
+counts_raw <- read.table("Data/GSE152418/GSE152418_p20047_Study1_RawCounts.txt.gz",
+                         header = TRUE, sep = "\t", row.names = 1,
+                         check.names = FALSE)
+
+cat("Raw count matrix dimensions:\n")
+cat("  Genes:", nrow(counts_raw), "\n")
+cat("  Samples:", ncol(counts_raw), "\n")
+cat("\nFirst few gene names:\n")
+head(rownames(counts_raw))
+cat("\nFirst few sample names:\n")
+head(colnames(counts_raw))
+cat("\nCorner of the matrix:\n")
+print(counts_raw[1:5, 1:5])
+```
+
+---
+
+## 3. Load metadata from GEO series matrix
+
+```{r load-metadata}
+# Try loading from local series matrix file
+geo <- getGEO(filename = "Data/GSE152418/GSE152418_series_matrix.txt.gz",
+              getGPL = FALSE)
+
+metadata <- pData(geo)
+
+cat("Metadata dimensions:", nrow(metadata), "samples x", ncol(metadata), "columns\n")
+cat("\nColumn names:\n")
+print(colnames(metadata))
+```
+
+---
+
+## 4. Clean and inspect metadata
+
+```{r clean-metadata}
+# Inspect key columns
+cat("Available characteristics columns:\n")
+char_cols <- grep("characteristics", colnames(metadata), value = TRUE)
+print(char_cols)
+
+# Print first few values of each characteristics column
+for (col in char_cols) {
+  cat("\n", col, ":\n")
+  print(head(unique(metadata[[col]]), 20))
+}
+
+# Extract relevant fields from characteristics columns
+# (Adjust column names based on what the series matrix contains)
+metadata$title_clean <- metadata$title
+
+# Try to extract disease status and severity
+# These are typically in characteristics_ch1, characteristics_ch1.1, etc.
+cat("\nSample titles:\n")
+print(metadata$title)
+```
+
+---
+
+## 5. Parse severity and demographic information
+
+```{r parse-severity}
+# Extract fields from characteristics columns
+# GEO typically stores: disease state, severity, gender, age, etc.
+
+# Parse each characteristics column
+for (col in char_cols) {
+  vals <- as.character(metadata[[col]])
+  # Extract field name and value
+  if (any(grepl(":", vals))) {
+    field_name <- sub(":.*", "", vals[1])
+    field_name <- trimws(tolower(gsub(" ", "_", field_name)))
+    metadata[[field_name]] <- trimws(sub(".*:", "", vals))
+    cat("Parsed:", field_name, "→", length(unique(metadata[[field_name]])), "unique values\n")
+    print(table(metadata[[field_name]]))
+    cat("\n")
+  }
+}
+```
+
+---
+
+## 6. Define severity contrast groups
+
+```{r define-groups}
+# The severity column was parsed from characteristics_ch1.3
+# Values: Convalescent, Moderate, Severe, ICU, Healthy
+cat("Severity values parsed from GEO:\n")
+print(table(metadata$severity))
+
+# Create binary severity group:
+# Severe_ICU = Severe + ICU patients
+# Healthy_Mild = Healthy + Moderate patients
+# Exclude Convalescent
+metadata$severity_group <- case_when(
+  metadata$severity %in% c("Healthy")              ~ "Healthy_Mild",
+  metadata$severity %in% c("Moderate")             ~ "Healthy_Mild",
+  metadata$severity %in% c("Severe", "ICU")        ~ "Severe_ICU",
+  metadata$severity %in% c("Convalescent")         ~ NA_character_,
+  TRUE                                              ~ NA_character_
+)
+
+cat("\nSeverity group distribution:\n")
+print(table(metadata$severity_group, useNA = "ifany"))
+
+# Also show original severity within each group
+cat("\nOriginal severity within groups:\n")
+print(table(metadata$severity, metadata$severity_group, useNA = "ifany"))
+
+# Remove convalescent / unclassified samples
+metadata_clean <- metadata %>% filter(!is.na(severity_group))
+cat("\nSamples after excluding convalescent:", nrow(metadata_clean), "\n")
+
+# Set as factor with reference level
+metadata_clean$severity_group <- relevel(factor(metadata_clean$severity_group),
+                                         ref = "Healthy_Mild")
+```
+
+---
+
+## 7. Inspect group sizes and gender balance
+
+```{r group-sizes, fig.width=10, fig.height=5}
+cat("Group sizes:\n")
+print(table(metadata_clean$severity_group))
+
+# Check for gender column
+gender_col <- grep("gender|sex", colnames(metadata_clean), value = TRUE, ignore.case = TRUE)
+if (length(gender_col) > 0) {
+  cat("\nGender distribution:\n")
+  print(table(metadata_clean[[gender_col[1]]]))
+
+  cat("\nGender × Severity:\n")
+  gender_sev_table <- table(metadata_clean[[gender_col[1]]], metadata_clean$severity_group)
+  print(gender_sev_table)
+
+  # Visualise
+  p <- ggplot(metadata_clean, aes(x = severity_group, fill = .data[[gender_col[1]]])) +
+    geom_bar(position = "dodge") +
+    labs(title = "Gender balance across severity groups",
+         x = "Severity group", y = "Count", fill = "Gender") +
+    theme_classic(base_size = 14)
+  print(p)
+  ggsave("plots/phase7/phase7_gender_balance.png", p, width = 8, height = 5, dpi = 300)
+} else {
+  cat("\nNo gender column found in metadata.\n")
+}
+```
+
+---
+
+## 8. Check missing data
+
+```{r missing-data}
+cat("Percentage of non-missing values per metadata column:\n")
+completeness <- colMeans(!is.na(metadata_clean)) * 100
+print(round(completeness[completeness < 100], 1))
+if (all(completeness == 100)) cat("All columns are 100% complete.\n")
+```
+
+---
+
+## 9. Severity distribution bar plot
+
+```{r severity-barplot, fig.width=8, fig.height=5}
+p <- ggplot(metadata_clean, aes(x = severity_group, fill = severity_group)) +
+  geom_bar() +
+  geom_text(stat = "count", aes(label = after_stat(count)), vjust = -0.5) +
+  scale_fill_manual(values = c("Healthy_Mild" = "steelblue",
+                                "Severe_ICU" = "firebrick")) +
+  labs(title = "Sample distribution by severity group (GSE152418)",
+       x = "Severity group", y = "Number of samples") +
+  theme_classic(base_size = 14) +
+  theme(legend.position = "none")
+
+print(p)
+ggsave("plots/phase7/phase7_severity_distribution.png", p, width = 8, height = 5, dpi = 300)
+```
+
+---
+
+## 10. Align count matrix with metadata
+
+```{r align-counts}
+# Find matching sample identifiers between counts and metadata
+cat("Count matrix sample names (first 10):\n")
+print(head(colnames(counts_raw), 10))
+cat("\nMetadata sample identifiers (first 10):\n")
+print(head(metadata_clean$title, 10))
+cat("\nMetadata geo_accession (first 10):\n")
+print(head(metadata_clean$geo_accession, 10))
+
+# Try to match by title or geo_accession
+if (any(colnames(counts_raw) %in% metadata_clean$title)) {
+  match_col <- "title"
+} else if (any(colnames(counts_raw) %in% metadata_clean$geo_accession)) {
+  match_col <- "geo_accession"
+} else {
+  # Try substring matching
+  cat("\nNo direct match found. Attempting partial matching...\n")
+  match_col <- NULL
+}
+
+if (!is.null(match_col)) {
+  # Subset metadata to samples present in count matrix
+  shared <- intersect(colnames(counts_raw), metadata_clean[[match_col]])
+  cat("\nShared samples between counts and metadata:", length(shared), "\n")
+
+  # Align
+  metadata_clean <- metadata_clean[metadata_clean[[match_col]] %in% shared, ]
+  rownames(metadata_clean) <- metadata_clean[[match_col]]
+  counts_aligned <- counts_raw[, metadata_clean[[match_col]]]
+
+  # Verify
+  cat("Alignment check:", all(colnames(counts_aligned) == rownames(metadata_clean)), "\n")
+} else {
+  cat("Manual alignment needed — inspect sample names above.\n")
+  counts_aligned <- counts_raw
+}
+
+cat("\nAligned matrix: ", nrow(counts_aligned), "genes x", ncol(counts_aligned), "samples\n")
+```
+
+---
+
+## 11. Filter low-count genes
+
+```{r filter-genes}
+cat("Genes before filtering:", nrow(counts_aligned), "\n")
+
+# Strategy: keep genes with at least 10 counts in at least 3 samples
+keep <- rowSums(counts_aligned >= 10) >= 3
+counts_filtered <- counts_aligned[keep, ]
+
+cat("Genes after filtering:", nrow(counts_filtered), "\n")
+cat("Genes removed:", sum(!keep), "\n")
+cat("Percentage retained:", round(100 * sum(keep) / length(keep), 1), "%\n")
+```
+
+---
+
+## 12. Library size overview
+
+```{r library-sizes, fig.width=10, fig.height=5}
+lib_sizes <- colSums(counts_filtered)
+
+p <- data.frame(
+  sample = names(lib_sizes),
+  lib_size = lib_sizes,
+  severity = metadata_clean$severity_group
+) %>%
+  ggplot(aes(x = reorder(sample, lib_size), y = lib_size / 1e6,
+             fill = severity)) +
+  geom_col() +
+  scale_fill_manual(values = c("Healthy_Mild" = "steelblue",
+                                "Severe_ICU" = "firebrick")) +
+  labs(title = "Library sizes (GSE152418)",
+       x = "Sample", y = "Library size (millions of reads)",
+       fill = "Severity") +
+  theme_classic(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 7))
+
+print(p)
+ggsave("plots/phase7/phase7_library_sizes.png", p, width = 10, height = 5, dpi = 300)
+```
+
+---
+
+## 13. Save cleaned data for Phase 8
+
+```{r save-data}
+saveRDS(counts_filtered, file = "Data/phase7_bulk_counts_filtered.rds")
+saveRDS(metadata_clean, file = "Data/phase7_bulk_metadata.rds")
+
+cat("Saved:\n")
+cat("  Data/phase7_bulk_counts_filtered.rds\n")
+cat("  Data/phase7_bulk_metadata.rds\n")
+```
+
+---
+
+## Decision Checkpoint 3
+
+> **Data quality and group definition:**
+>
+> 1. Why group Severe + ICU as one class?
+> 2. Why exclude Convalescent samples?
+> 3. Are the group sizes sufficient for DESeq2?
+>
+> (Fill in after rendering.)
+
+---
+
+## Session info
+
+```{r session-info}
+sessionInfo()
+```

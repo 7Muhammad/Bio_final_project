@@ -1,0 +1,408 @@
+---
+title: "Phase 8 – DESeq2 Differential Expression (Severity-Specific)"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Goal
+
+This document implements **Phase 8** — differential expression analysis on
+the GSE152418 bulk RNA-seq dataset using DESeq2. We compare **Severe/ICU** vs
+**Healthy/Mild** to identify genes differentially expressed in severe COVID-19
+at the whole-blood level.
+
+---
+
+## 1. Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(DESeq2)
+library(apeglm)
+library(org.Hs.eg.db)
+library(EnhancedVolcano)
+library(pheatmap)
+library(RColorBrewer)
+
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 10,
+  fig.height = 6
+)
+
+dir.create("plots/phase8", showWarnings = FALSE, recursive = TRUE)
+```
+
+---
+
+## 2. Load Phase 7 outputs
+
+```{r load-data}
+counts   <- readRDS("Data/phase7_bulk_counts_filtered.rds")
+metadata <- readRDS("Data/phase7_bulk_metadata.rds")
+
+cat("Count matrix:", nrow(counts), "genes x", ncol(counts), "samples\n")
+cat("Metadata:", nrow(metadata), "samples\n")
+cat("\nSeverity group distribution:\n")
+print(table(metadata$severity_group))
+
+# Ensure reference level
+metadata$severity_group <- relevel(factor(metadata$severity_group),
+                                    ref = "Healthy_Mild")
+```
+
+---
+
+## 3. Create DESeqDataSet
+
+```{r create-dds}
+dds <- DESeqDataSetFromMatrix(
+  countData = counts,
+  colData   = metadata,
+  design    = ~ severity_group
+)
+
+cat("DESeqDataSet created:\n")
+cat("  Genes:", nrow(dds), "\n")
+cat("  Samples:", ncol(dds), "\n")
+```
+
+---
+
+## 4. Library size barplot
+
+```{r library-sizes, fig.width=10, fig.height=5}
+lib_df <- data.frame(
+  sample   = colnames(dds),
+  lib_size = colSums(counts(dds)),
+  severity = dds$severity_group
+)
+
+p <- ggplot(lib_df, aes(x = reorder(sample, lib_size), y = lib_size / 1e6,
+                        fill = severity)) +
+  geom_col() +
+  scale_fill_manual(values = c("Healthy_Mild" = "steelblue",
+                                "Severe_ICU" = "firebrick")) +
+  labs(title = "Library sizes by severity group",
+       x = "Sample", y = "Library size (millions)", fill = "Severity") +
+  theme_classic(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 7))
+
+print(p)
+ggsave("plots/phase8/phase8_library_sizes.png", p, width = 10, height = 5, dpi = 300)
+```
+
+---
+
+## 5. Estimate size factors
+
+```{r size-factors}
+dds <- estimateSizeFactors(dds)
+
+cat("Size factors:\n")
+sf_df <- data.frame(
+  sample      = colnames(dds),
+  size_factor = sizeFactors(dds),
+  severity    = dds$severity_group
+)
+print(sf_df)
+
+cat("\nSize factor range:", round(range(sizeFactors(dds)), 3), "\n")
+```
+
+---
+
+## 6. Mean-variance relationship
+
+```{r mean-var, fig.width=8, fig.height=6}
+# Compute mean and variance per gene
+gene_means <- rowMeans(counts(dds))
+gene_vars  <- apply(counts(dds), 1, var)
+
+mv_df <- data.frame(mean = gene_means, variance = gene_vars)
+
+p <- ggplot(mv_df, aes(x = log10(mean + 1), y = log10(variance + 1))) +
+  geom_point(size = 0.3, alpha = 0.3) +
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Mean-variance relationship (raw counts)",
+       subtitle = "Points above red line = overdispersed (variance > mean)",
+       x = "log10(mean + 1)", y = "log10(variance + 1)") +
+  theme_classic(base_size = 13)
+
+print(p)
+ggsave("plots/phase8/phase8_mean_variance.png", p, width = 8, height = 6, dpi = 300)
+```
+
+---
+
+## 7. Run DESeq2
+
+```{r run-deseq}
+dds <- DESeq(dds)
+
+cat("DESeq2 complete.\n")
+cat("Result names:", resultsNames(dds), "\n")
+```
+
+---
+
+## 8. Extract results
+
+```{r extract-results}
+res <- results(dds)
+
+cat("Results summary (unshrunken):\n")
+summary(res)
+```
+
+---
+
+## 9. Shrink fold changes (apeglm)
+
+```{r shrink-lfc}
+# Identify the correct coefficient name
+coef_name <- grep("Severe", resultsNames(dds), value = TRUE)
+cat("Shrinking coefficient:", coef_name, "\n")
+
+resLFC <- lfcShrink(dds, coef = coef_name, type = "apeglm")
+
+cat("\nResults summary (shrunken):\n")
+summary(resLFC)
+```
+
+---
+
+## 10. MA plots: before and after shrinkage
+
+```{r ma-plots, fig.width=12, fig.height=5}
+par(mfrow = c(1, 2))
+
+plotMA(res, main = "MA plot — unshrunken", ylim = c(-5, 5))
+plotMA(resLFC, main = "MA plot — apeglm shrunken", ylim = c(-5, 5))
+
+par(mfrow = c(1, 1))
+
+# Save as ggplot-compatible version
+png("plots/phase8/phase8_MA_plots.png", width = 12, height = 5,
+    units = "in", res = 300)
+par(mfrow = c(1, 2))
+plotMA(res, main = "MA plot — unshrunken", ylim = c(-5, 5))
+plotMA(resLFC, main = "MA plot — apeglm shrunken", ylim = c(-5, 5))
+par(mfrow = c(1, 1))
+dev.off()
+```
+
+---
+
+## 11. Map gene symbols
+
+```{r map-symbols}
+# Determine key type from row names
+example_genes <- head(rownames(resLFC))
+cat("Example gene IDs:", paste(example_genes, collapse = ", "), "\n")
+
+# Check if ENSEMBL or SYMBOL
+if (any(grepl("^ENSG", example_genes))) {
+  cat("Gene IDs are Ensembl → mapping to symbols\n")
+  resLFC$symbol <- mapIds(org.Hs.eg.db,
+                          keys = rownames(resLFC),
+                          column = "SYMBOL",
+                          keytype = "ENSEMBL",
+                          multiVals = "first")
+  resLFC$ensembl <- rownames(resLFC)
+} else {
+  cat("Gene IDs appear to be symbols already\n")
+  resLFC$symbol <- rownames(resLFC)
+}
+
+# How many mapped?
+cat("Genes with symbols:", sum(!is.na(resLFC$symbol)), "/", nrow(resLFC), "\n")
+```
+
+---
+
+## 12. Order by significance and count DE genes
+
+```{r order-results}
+resOrdered <- resLFC[order(resLFC$pvalue), ]
+
+cat("Significant genes (padj < 0.05):",
+    sum(resOrdered$padj < 0.05, na.rm = TRUE), "\n")
+cat("Upregulated (padj < 0.05, LFC > 0):",
+    sum(resOrdered$padj < 0.05 & resOrdered$log2FoldChange > 0, na.rm = TRUE), "\n")
+cat("Downregulated (padj < 0.05, LFC < 0):",
+    sum(resOrdered$padj < 0.05 & resOrdered$log2FoldChange < 0, na.rm = TRUE), "\n")
+
+cat("\nTop 20 DE genes:\n")
+top20 <- head(as.data.frame(resOrdered), 20)
+top20$symbol <- resLFC[rownames(top20), "symbol"]
+print(top20[, c("symbol", "log2FoldChange", "padj")])
+```
+
+---
+
+## 13. Volcano plot
+
+```{r volcano, fig.width=10, fig.height=8}
+# Use symbols for labels if available
+labs <- if (!is.null(resLFC$symbol)) resLFC$symbol else rownames(resLFC)
+labs[is.na(labs)] <- ""
+
+p <- EnhancedVolcano(resLFC,
+                     lab = labs,
+                     x   = "log2FoldChange",
+                     y   = "padj",
+                     title    = "Severe/ICU vs Healthy/Mild — Bulk RNA-seq (GSE152418)",
+                     subtitle = "DESeq2 with apeglm shrinkage",
+                     pCutoff  = 0.05,
+                     FCcutoff = 1.0,
+                     pointSize = 1.5,
+                     labSize   = 3.5,
+                     drawConnectors = TRUE,
+                     widthConnectors = 0.3,
+                     maxoverlapsConnectors = 20)
+
+print(p)
+ggsave("plots/phase8/phase8_volcano.png", p, width = 10, height = 8, dpi = 300)
+```
+
+---
+
+## 14. Heatmap of top DE genes
+
+```{r heatmap, fig.width=10, fig.height=8}
+# VST for visualization
+vsd <- vst(dds, blind = FALSE)
+
+# Select top 30 DE genes by adjusted p-value
+top_genes <- head(rownames(resOrdered[!is.na(resOrdered$padj), ]), 30)
+
+# Annotation column
+anno_col <- data.frame(
+  Severity = metadata$severity_group,
+  row.names = colnames(vsd)
+)
+
+anno_colors <- list(
+  Severity = c("Healthy_Mild" = "steelblue", "Severe_ICU" = "firebrick")
+)
+
+# Use symbols as row labels if available
+row_labels <- resLFC[top_genes, "symbol"]
+row_labels[is.na(row_labels)] <- top_genes[is.na(row_labels)]
+
+mat <- assay(vsd)[top_genes, ]
+rownames(mat) <- row_labels
+
+p <- pheatmap(mat,
+              scale = "row",
+              annotation_col = anno_col,
+              annotation_colors = anno_colors,
+              show_colnames = FALSE,
+              fontsize_row = 8,
+              clustering_distance_cols = "euclidean",
+              clustering_method = "ward.D2",
+              main = "Top 30 DE genes — Severe/ICU vs Healthy/Mild")
+
+ggsave("plots/phase8/phase8_heatmap_top30.png", p, width = 10, height = 8, dpi = 300)
+```
+
+---
+
+## 15. Box/jitter plots for key genes
+
+```{r key-gene-plots, fig.width=14, fig.height=5}
+# Key genes from the monocyte hypothesis
+key_genes_symbols <- c("ISG15", "IL1B", "TNF", "IFIT1", "CCL3", "MX1")
+
+# Find matching gene IDs
+if (any(grepl("^ENSG", rownames(dds)))) {
+  key_gene_ids <- mapIds(org.Hs.eg.db,
+                         keys = key_genes_symbols,
+                         column = "ENSEMBL",
+                         keytype = "SYMBOL",
+                         multiVals = "first")
+  key_gene_ids <- key_gene_ids[key_gene_ids %in% rownames(dds)]
+} else {
+  key_gene_ids <- key_genes_symbols[key_genes_symbols %in% rownames(dds)]
+  names(key_gene_ids) <- key_gene_ids
+}
+
+cat("Key genes found in data:", paste(names(key_gene_ids), collapse = ", "), "\n")
+
+# Plot each
+plots <- list()
+for (i in seq_along(key_gene_ids)) {
+  gene_id <- key_gene_ids[i]
+  gene_name <- names(key_gene_ids)[i]
+
+  d <- plotCounts(dds, gene = gene_id, intgroup = "severity_group",
+                  returnData = TRUE)
+
+  plots[[i]] <- ggplot(d, aes(x = severity_group, y = count, fill = severity_group)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+    geom_jitter(width = 0.15, size = 2) +
+    scale_y_log10() +
+    scale_fill_manual(values = c("Healthy_Mild" = "steelblue",
+                                  "Severe_ICU" = "firebrick")) +
+    labs(title = gene_name, x = "", y = "Normalized count") +
+    theme_classic(base_size = 11) +
+    theme(legend.position = "none")
+}
+
+p <- patchwork::wrap_plots(plots, ncol = length(plots))
+print(p)
+ggsave("plots/phase8/phase8_key_gene_boxplots.png", p,
+       width = 14, height = 5, dpi = 300)
+```
+
+---
+
+## 16. Save results
+
+```{r save-results}
+# Save full DESeq2 results
+write.csv(as.data.frame(resOrdered),
+          file = "Data/phase8_SevereICU_vs_HealthyMild_DESeq2.csv")
+
+# Save the DESeqDataSet for downstream phases
+saveRDS(dds, file = "Data/phase8_dds.rds")
+
+# Save shrunken results
+saveRDS(resLFC, file = "Data/phase8_resLFC.rds")
+
+cat("Saved:\n")
+cat("  Data/phase8_SevereICU_vs_HealthyMild_DESeq2.csv\n")
+cat("  Data/phase8_dds.rds\n")
+cat("  Data/phase8_resLFC.rds\n")
+```
+
+---
+
+## Decision Checkpoint 4
+
+> **Why DESeq2 for count data?**
+>
+> 1. DESeq2 models count data with a negative binomial distribution, which
+>    properly handles the mean-variance relationship (overdispersion) in RNA-seq.
+> 2. With small sample sizes, DESeq2's shrinkage estimators for dispersion
+>    and fold changes are more conservative than limma-voom, reducing false
+>    positives.
+>
+> **Why group Severe + ICU together?**
+>
+> 1.
+> 2.
+>
+> (Fill in after rendering with actual group sizes.)
+
+---
+
+## Session info
+
+```{r session-info}
+sessionInfo()
+```
