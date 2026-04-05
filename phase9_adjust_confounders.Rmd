@@ -1,0 +1,276 @@
+---
+title: "Phase 9 – Adjust for Confounders (Gender)"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Goal
+
+This document implements **Phase 9** — testing whether gender confounds the
+Severe/ICU vs Healthy/Mild comparison in the GSE152418 bulk RNA-seq data.
+We fit an additive DESeq2 model with gender and compare the results to the
+simple model from Phase 8.
+
+---
+
+## 1. Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(DESeq2)
+library(apeglm)
+library(org.Hs.eg.db)
+library(patchwork)
+
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 10,
+  fig.height = 6
+)
+
+dir.create("plots/phase9", showWarnings = FALSE, recursive = TRUE)
+```
+
+---
+
+## 2. Load Phase 7–8 outputs
+
+```{r load-data}
+counts   <- readRDS("Data/phase7_bulk_counts_filtered.rds")
+metadata <- readRDS("Data/phase7_bulk_metadata.rds")
+dds_simple <- readRDS("Data/phase8_dds.rds")
+resLFC     <- readRDS("Data/phase8_resLFC.rds")
+
+cat("Count matrix:", nrow(counts), "genes x", ncol(counts), "samples\n")
+cat("Severity groups:\n")
+print(table(metadata$severity_group))
+```
+
+---
+
+## 3. Check gender balance
+
+```{r gender-balance}
+cat("Gender distribution:\n")
+print(table(metadata$gender))
+
+cat("\nGender × Severity group:\n")
+gender_sev <- table(metadata$gender, metadata$severity_group)
+print(gender_sev)
+
+cat("\nChi-squared test for gender × severity independence:\n")
+if (min(dim(gender_sev)) >= 2) {
+  chi_test <- chisq.test(gender_sev)
+  print(chi_test)
+  cat("\np-value:", chi_test$p.value, "\n")
+  if (chi_test$p.value < 0.05) {
+    cat("→ Gender is significantly associated with severity group — confounding possible.\n")
+  } else {
+    cat("→ No significant association — gender is reasonably balanced.\n")
+  }
+} else {
+  cat("Cannot test — not enough levels.\n")
+}
+```
+
+### Gender balance plot
+
+```{r gender-plot, fig.width=8, fig.height=5}
+p <- ggplot(metadata, aes(x = severity_group, fill = gender)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Gender balance across severity groups",
+       x = "Severity group", y = "Count", fill = "Gender") +
+  theme_classic(base_size = 14)
+
+print(p)
+ggsave("plots/phase9/phase9_gender_balance.png", p, width = 8, height = 5, dpi = 300)
+```
+
+---
+
+## 4. Fit additive model: ~ gender + severity_group
+
+```{r fit-adjusted}
+# Ensure gender is a factor
+metadata$gender <- factor(metadata$gender)
+
+# Ensure severity_group reference level
+metadata$severity_group <- relevel(factor(metadata$severity_group),
+                                    ref = "Healthy_Mild")
+
+dds2 <- DESeqDataSetFromMatrix(
+  countData = counts,
+  colData   = metadata,
+  design    = ~ gender + severity_group
+)
+
+dds2 <- DESeq(dds2)
+
+cat("Adjusted model result names:\n")
+print(resultsNames(dds2))
+```
+
+---
+
+## 5. Shrink fold changes (adjusted model)
+
+```{r shrink-adjusted}
+coef_name <- grep("Severe", resultsNames(dds2), value = TRUE)
+cat("Shrinking coefficient:", coef_name, "\n")
+
+res2LFC <- lfcShrink(dds2, coef = coef_name, type = "apeglm")
+
+cat("\nAdjusted model results summary:\n")
+summary(res2LFC)
+```
+
+---
+
+## 6. Compare simple vs adjusted models
+
+### 6a. Fold-change correlation
+
+```{r compare-lfc, fig.width=8, fig.height=8}
+# Align genes
+shared_genes <- intersect(rownames(resLFC), rownames(res2LFC))
+lfc_simple   <- resLFC[shared_genes, "log2FoldChange"]
+lfc_adjusted <- res2LFC[shared_genes, "log2FoldChange"]
+
+lfc_cor <- cor(lfc_simple, lfc_adjusted, use = "complete.obs")
+cat("Pearson correlation of log2FC (simple vs adjusted):", round(lfc_cor, 4), "\n")
+
+df_compare <- data.frame(
+  simple   = lfc_simple,
+  adjusted = lfc_adjusted
+)
+
+p <- ggplot(df_compare, aes(x = simple, y = adjusted)) +
+  geom_point(size = 0.5, alpha = 0.3) +
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  labs(title = paste0("Simple vs Gender-Adjusted log2FC (r = ",
+                      round(lfc_cor, 4), ")"),
+       x = "log2FC — simple model (~ severity_group)",
+       y = "log2FC — adjusted model (~ gender + severity_group)") +
+  theme_classic(base_size = 13) +
+  coord_equal()
+
+print(p)
+ggsave("plots/phase9/phase9_lfc_correlation.png", p, width = 8, height = 8, dpi = 300)
+```
+
+### 6b. Significance comparison
+
+```{r compare-sig}
+sig_simple   <- sum(resLFC$padj < 0.05, na.rm = TRUE)
+sig_adjusted <- sum(res2LFC$padj < 0.05, na.rm = TRUE)
+
+cat("Significant genes (padj < 0.05):\n")
+cat("  Simple model:   ", sig_simple, "\n")
+cat("  Adjusted model: ", sig_adjusted, "\n")
+cat("  Difference:     ", sig_adjusted - sig_simple, "\n")
+
+# Overlap
+sig_genes_simple   <- rownames(resLFC)[which(resLFC$padj < 0.05)]
+sig_genes_adjusted <- rownames(res2LFC)[which(res2LFC$padj < 0.05)]
+overlap <- length(intersect(sig_genes_simple, sig_genes_adjusted))
+cat("\n  Overlap:         ", overlap, "\n")
+cat("  Only in simple:  ", length(setdiff(sig_genes_simple, sig_genes_adjusted)), "\n")
+cat("  Only in adjusted:", length(setdiff(sig_genes_adjusted, sig_genes_simple)), "\n")
+```
+
+### 6c. MA plot comparison
+
+```{r ma-comparison, fig.width=12, fig.height=5}
+png("plots/phase9/phase9_MA_comparison.png", width = 12, height = 5,
+    units = "in", res = 300)
+par(mfrow = c(1, 2))
+plotMA(resLFC, main = "Simple model (~ severity_group)", ylim = c(-5, 5))
+plotMA(res2LFC, main = "Adjusted model (~ gender + severity_group)", ylim = c(-5, 5))
+par(mfrow = c(1, 1))
+dev.off()
+
+# Also display in document
+par(mfrow = c(1, 2))
+plotMA(resLFC, main = "Simple model", ylim = c(-5, 5))
+plotMA(res2LFC, main = "Adjusted model", ylim = c(-5, 5))
+par(mfrow = c(1, 1))
+```
+
+---
+
+## 7. Check gender effect specifically
+
+```{r gender-effect}
+# Extract gender effect
+gender_coef <- grep("gender", resultsNames(dds2), value = TRUE)
+cat("Gender coefficient:", gender_coef, "\n")
+
+res_gender <- results(dds2, name = gender_coef)
+cat("\nGender effect summary:\n")
+summary(res_gender)
+
+sig_gender <- sum(res_gender$padj < 0.05, na.rm = TRUE)
+cat("\nGenes significantly associated with gender (padj < 0.05):", sig_gender, "\n")
+```
+
+---
+
+## 8. Decision: simple or adjusted model?
+
+```{r decision}
+cat("===== MODEL COMPARISON SUMMARY =====\n\n")
+cat("Correlation of fold changes: r =", round(lfc_cor, 4), "\n")
+cat("Significant genes — simple:  ", sig_simple, "\n")
+cat("Significant genes — adjusted:", sig_adjusted, "\n")
+cat("Overlap:                     ", overlap, "\n")
+cat("Gender-associated genes:     ", sig_gender, "\n\n")
+
+if (lfc_cor > 0.99 && abs(sig_adjusted - sig_simple) < sig_simple * 0.1) {
+  cat("RECOMMENDATION: Use the SIMPLE model.\n")
+  cat("Rationale: Fold changes are nearly identical (r > 0.99).\n")
+  cat("Adding gender as a covariate does not materially change results\n")
+  cat("and may cost statistical power with small sample sizes.\n")
+} else if (lfc_cor > 0.95) {
+  cat("RECOMMENDATION: Models are similar. Either is defensible.\n")
+  cat("Consider sample size when deciding whether the extra covariate is justified.\n")
+} else {
+  cat("RECOMMENDATION: Use the ADJUSTED model.\n")
+  cat("Rationale: Gender has a meaningful confounding effect on fold changes.\n")
+}
+```
+
+---
+
+## 9. Save results
+
+```{r save-results}
+saveRDS(dds2, file = "Data/phase9_dds_adjusted.rds")
+saveRDS(res2LFC, file = "Data/phase9_resLFC_adjusted.rds")
+
+cat("Saved:\n")
+cat("  Data/phase9_dds_adjusted.rds\n")
+cat("  Data/phase9_resLFC_adjusted.rds\n")
+```
+
+---
+
+## Decision Checkpoint 5
+
+> **Simple vs adjusted model:**
+>
+> 1. Correlation between fold changes: r = ___
+> 2. Gender confounding assessment: ___
+> 3. Final decision: ___
+>
+> (Fill in after rendering.)
+
+---
+
+## Session info
+
+```{r session-info}
+sessionInfo()
+```
