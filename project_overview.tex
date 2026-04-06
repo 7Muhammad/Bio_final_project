@@ -1469,70 +1469,1791 @@ The annotated object is saved to \texttt{Data/phase3\_seurat\_annotated.rds}
 and the full marker table to \texttt{Data/phase3\_all\_markers.csv}
 for use in Phase 4.
 
+% ─────────────────────────────────────────────────────────
+\subsection{Module scoring — what it is and why we use it}
+
+After annotating cell types in Phase 3, the next question is:
+\textit{``How active is a specific program in each individual cell?''}
+We do not want a yes/no answer — we want a continuous number that says
+\textit{how strongly} a cell is running the antiviral program or the
+inflammatory program.
+
+\textbf{Module scoring} (\texttt{AddModuleScore} in Seurat) does exactly this.
+
+\subsubsection*{The simple idea}
+
+You give the function a list of genes that together define a biological program
+(the ``module''). For each cell, it computes the average expression of those
+genes, then subtracts the average expression of a set of randomly chosen
+background genes.
+
+\begin{itemize}[nosep]
+  \item A \textbf{positive score} means the cell expresses your module genes
+        more than random background — the program is active.
+  \item A \textbf{negative score} means the program is off or below background.
+  \item The score is \textbf{continuous} — you can compare how strongly
+        different cells have the program on.
+\end{itemize}
+
+There is no fixed threshold built into the method.
+A common choice is to call a cell ``active'' for a module when its score
+exceeds zero, because the score is designed to be centered at zero for
+backgroundlevels of expression.
+
+\subsubsection*{The two modules used in this project}
+
+\begin{itemize}[nosep]
+  \item \textbf{ISG score} (antiviral program): ISG15, IFIT1, MX1, OAS1, IFI44L —
+        all strong markers of type-I interferon activation.
+  \item \textbf{TNF/IL-1$\beta$ score} (inflammatory program): TNF, IL1B, CCL3,
+        CCL4, CXCL8 — the core cytokines of the pro-inflammatory monocyte response.
+\end{itemize}
+
+A cell is called \textbf{co-activated} when \textit{both} scores are above zero
+simultaneously. This is the central measurement of this project.
+
 % ─────────────────────────────────────────────
 \section{Phase 4 — CD14\textsuperscript{+} Monocyte Deep-Dive}
 % ─────────────────────────────────────────────
 
+\subsection{Phase 4 overview — the big picture}
+
+\textbf{Phase 3 found the cells. Phase 4 asks what those cells are doing — and whether disease severity changes it.}
+
+By the end of Phase 3 we had 23 annotated clusters with several monocyte sub-states
+(IL-1$\beta^+$, ISG-high, chemokine-secreting, etc.). But we had not yet connected
+those states to disease severity, nor had we tested the central hypothesis:
+do severe COVID monocytes run both the antiviral and inflammatory programs
+\textit{at the same time}?
+
+Phase 4 answers that question in five steps:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Add severity labels} — attach Healthy/Mild/Severe/Flu to every cell.
+  \item \textbf{Visualize composition} — does the balance of cell types shift with severity?
+  \item \textbf{Subset monocytes} — isolate only the monocytes for focused analysis.
+  \item \textbf{Score both programs} — measure ISG and TNF/IL-1$\beta$ activity per cell.
+  \item \textbf{Test co-activation} — is the top-right quadrant (both high) enriched in severe COVID?
+\end{enumerate}
+
 \subsection{Add severity metadata and subset monocytes \small\normalfont\textit{(Steps 3–4)}}
-Each cell's barcode suffix encodes its original sample (donor) identity.
-This is mapped to condition (COVID / Flu / Healthy) and severity
-(Severe / Mild / Healthy / Flu) based on the sample table from Lee et al.\ 2020.
-Cells annotated as monocytes by SingleR are then extracted into a separate
-object for focused analysis.
 
-\subsection{Module scoring — ISG and TNF/IL-1\(\beta\) \small\normalfont\textit{(Steps 5–6)}}
-Two gene-set scores are computed with \texttt{AddModuleScore()}:
+Each cell in the dataset carries a barcode suffix that maps to one of 20 donors
+from Lee et al.\ 2020. Using the paper's clinical table (Table S1), each donor
+is assigned a severity label: \textbf{Severe COVID} (nCoV 1--7),
+\textbf{Mild COVID} (nCoV 8--11), \textbf{Healthy} (Normal 1--4), or
+\textbf{Flu} (Flu 1--5). This gives every single cell in the dataset a severity
+label, not just an average across samples.
+
+\textbf{Metadata summary after assignment:}
 \begin{itemize}[nosep]
-  \item \textbf{ISG score} — interferon-stimulated genes:
-        \textit{ISG15, IFIT1, MX1, OAS1, IFI44L}.
-  \item \textbf{TNF/IL-1\(\beta\) score} — pro-inflammatory genes:
-        \textit{TNF, IL1B, CCL3, CCL4, CXCL8}.
+  \item 4 Healthy donors, 4 Mild donors, 7 Severe donors, 5 Flu donors.
+  \item Monocytes subset: 21,385 cells (all cells labelled \texttt{Monocytes}
+        by SingleR), covering all four severity groups.
 \end{itemize}
-Each score measures how strongly a cell expresses that programme relative to
-background.
 
-\subsection{Co-activation analysis and severity comparison \small\normalfont\textit{(Steps 7–12)}}
-A cell is labelled \textit{co-activated} if both its ISG score and
-TNF/IL-1\(\beta\) score are above zero.
-A scatter plot of the two scores (coloured by severity) visualises the
-co-activated quadrant.
-Violin plots compare the scores across severity groups at the single-cell level.
-Scores are then averaged per donor and compared between Mild and Severe COVID
-patients with Wilcoxon rank-sum tests; a Kruskal-Wallis test covers all groups.
+\subsubsection*{Step 3a — UMAP split by severity}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase4/phase4_umap_split_severity.png}
+\end{center}
+
+Each panel shows the same UMAP from Phase 3 but only with cells from one
+severity group. Monocytes are purple; T and NK cells are gold/olive/pink;
+B cells are salmon at the bottom island.
+
+\begin{itemize}[nosep]
+  \item \textbf{Healthy:} the UMAP is balanced. Monocytes occupy the right
+        continent (purple), but T and NK cells fill the left continent with
+        comparable density. No single cell type dominates.
+  \item \textbf{Mild:} broadly similar to Healthy. Monocytes are present in the
+        right continent; the T/NK left side is still well-populated.
+  \item \textbf{Severe:} the right continent (monocytes) is clearly denser and
+        more filled-in. The left continent (T cells, NK cells) appears thinner.
+        This is the \textbf{monocyte expansion + lymphopenia} pattern typical of
+        severe COVID-19.
+  \item \textbf{Flu:} the monocyte continent dominates even more than Severe —
+        and, strikingly, a separate isolated monocyte blob appears in the top-right
+        corner of the Flu UMAP. This suggests a Flu-specific monocyte sub-state
+        that is transcriptionally distinct enough to detach from the main monocyte
+        mass in the embedding.
+\end{itemize}
+
+\subsubsection*{Step 3b — Cell-type composition by severity}
+
+\begin{center}
+  \includegraphics[width=0.9\textwidth]{plots/phase4/phase4_composition_barplot.png}
+\end{center}
+
+The stacked barplot converts the visual impression from the UMAP into exact
+proportions. Each bar sums to 100\%.
+
+\begin{itemize}[nosep]
+  \item \textbf{Monocytes (purple):} Healthy $\approx$35\%, Mild $\approx$35\%,
+        Severe $\approx$50\%, Flu $\approx$75\%.
+        There is a clear stepwise increase with severity, and Flu is more extreme
+        than Severe COVID.
+  \item \textbf{NK cells (hot pink):} Healthy $\approx$28\%, dropping to
+        $\approx$20\% in Severe and remaining moderate in Flu.
+  \item \textbf{CD4$^+$ T cells (orange):} Healthy $\approx$12\%, shrinking in
+        Severe to $\approx$5\%. \textbf{CD4$^+$ T cell depletion} is one of the
+        hallmarks of severe COVID-19; this plot confirms it directly.
+  \item \textbf{CD8$^+$ T cells (olive):} More stable across conditions,
+        but slightly depleted in Severe.
+  \item \textbf{B cells (salmon):} small and relatively stable, consistent with
+        B cell biology being less dramatically altered in acute COVID.
+\end{itemize}
+
+\textbf{Key message:} the blood composition is not static — severe COVID
+reshapes the immune cell balance. Monocytes expand and fill the space left
+by depleted T cells. This already suggests the blood in severe COVID is
+in a qualitatively different state, motivating us to zoom in on those monocytes.
+
+\subsection{Module scoring and co-activation analysis \small\normalfont\textit{(Steps 5–9)}}
+
+With severity labels attached and monocytes isolated (21,385 cells),
+we now measure how strongly each monocyte runs the antiviral (ISG) and
+inflammatory (TNF/IL-1$\beta$) programs.
+
+\subsubsection*{Step 9 — Violin plots of scores by severity}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase4/phase4_violin_scores_severity.png}
+\end{center}
+
+Each violin shows the distribution of a module score across all monocytes in
+one severity group. The x-axis is the score value; wider = more cells at that value.
+
+\textit{Top panel — ISG score (antiviral program):}
+\begin{itemize}[nosep]
+  \item \textbf{Healthy:} tight, narrow violin centered near $-0.2$.
+        The antiviral program is essentially off in healthy monocytes.
+  \item \textbf{Mild Covid:} \textbf{bimodal} — the violin has two visible peaks,
+        one near 0 and a second extending above 0.5.
+        This is the most striking feature: in mild COVID, there are two distinct
+        monocyte subpopulations — one with the ISG program partly on, one without.
+        This could reflect donor heterogeneity or a genuine within-sample split
+        between ISG-high and ISG-low monocytes.
+  \item \textbf{Severe:} similar shape to Healthy — narrow, centered near 0.
+        Somewhat counterintuitively, the ISG program is not broadly elevated
+        at the cell level in Severe COVID monocytes.
+  \item \textbf{Flu:} also narrow, similar to Healthy.
+\end{itemize}
+
+\textit{Bottom panel — TNF/IL-1$\beta$ score (inflammatory program):}
+\begin{itemize}[nosep]
+  \item \textbf{Healthy:} very tight at $-1$, essentially zero activity.
+  \item \textbf{Mild:} slightly wider, still mostly low.
+  \item \textbf{Severe:} \textbf{markedly broader} — the violin extends up to
+        $\approx 3$ with a substantial body above 0. A large fraction of severe
+        monocytes are actively running the inflammatory program.
+        This is the clearest result so far: the TNF/IL-1$\beta$ program is
+        specifically elevated in severe COVID monocytes at the cell level.
+  \item \textbf{Flu:} also broader than Healthy, with a multi-bump shape
+        suggesting multiple sub-states with varying inflammatory activity.
+\end{itemize}
+
+\subsubsection*{Step 7 — Co-activation scatter (the central plot)}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase4/phase4_coactivation_scatter.png}
+\end{center}
+
+This is the most important plot in Phase 4.
+Each dot is one monocyte. The x-axis is its ISG score; the y-axis is its
+TNF/IL-1$\beta$ score. The dashed lines at $x = 0$ and $y = 0$ divide
+the plot into four quadrants:
+
+\begin{center}
+\begin{tabular}{@{}p{3cm}p{5.5cm}p{4cm}@{}}
+\toprule
+\textbf{Quadrant} & \textbf{meaning} & \textbf{label} \\
+\midrule
+Top-right    & both programs on  & \textbf{co-activated} \\
+Top-left     & only inflammation on & inflamed, not antiviral \\
+Bottom-right & only ISG on       & antiviral, not inflamed \\
+Bottom-left  & both programs off & resting \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}[nosep]
+  \item \textbf{Healthy:} cells cluster tightly in the bottom-left. Both programs
+        are off. This is the expected resting state.
+  \item \textbf{Mild:} cells spread widely in all four directions, including the
+        top-right (co-activated) quadrant. There is a visible cloud of blue dots
+        with both ISG $> 0$ and TNF/IL-1$\beta > 0$.
+        This was partly unexpected — mild COVID shows the most ISG activity
+        at the cell level (consistent with the bimodal violin above).
+  \item \textbf{Severe:} the cell cloud shifts \textit{upward and to the left}.
+        Many red cells are in the top-left (high TNF/IL-1$\beta$, low ISG) —
+        these are cells running pure inflammation without antiviral response.
+        Fewer cells are in the top-right compared to Mild, but the ones
+        that are there (co-activated) are more extreme in their TNF/IL-1$\beta$
+        scores (reaching $y \approx 3$).
+  \item \textbf{Flu:} similar pattern to Severe — a large upper-left mass,
+        with a subset in the top-right.
+\end{itemize}
+
+\textbf{Interpretation:} the co-activated state (top-right) is present in all
+conditions except Healthy, but the \textit{nature} of the activation differs:
+Mild COVID monocytes tend toward ISG-high states; Severe COVID monocytes
+tend toward TNF/IL-1$\beta$-high states. The worst outcomes (severe disease)
+are associated with a shift toward unchecked inflammation rather than
+ISG-based antiviral defense.
+
+\subsection{Donor-level comparison \small\normalfont\textit{(Steps 10–12)}}
+
+Cell-level analysis reflects thousands of cells per condition, but cells from
+the same donor are not independent. The \textbf{correct unit of comparison
+for between-condition statistics is the donor}, not the individual cell.
+Each donor's monocytes are averaged into one summary score.
+
+\subsubsection*{Step 12 — Donor-level boxplots}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase4/phase4_donor_boxplots.png}
+\end{center}
+
+Each dot is one donor; the box shows the interquartile range.
+
+\textit{Left — ISG score per donor:}
+\begin{itemize}[nosep]
+  \item Mild COVID has the highest median ISG score among donors,
+        with one outlier donor reaching $\approx 0.9$.
+  \item Severe COVID has a \textit{lower} mean ISG score than Mild — despite
+        being more clinically severe. The ISG program is actually more
+        consistently elevated in mild disease at the donor level.
+  \item Healthy donors are tightly clustered near $-0.5$.
+  \item Flu falls between Healthy and Mild.
+\end{itemize}
+
+\textit{Middle — TNF/IL-1$\beta$ score per donor:}
+\begin{itemize}[nosep]
+  \item Healthy donors cluster tightly near $-0.6$ — essentially silent.
+  \item Mild shows modest elevation.
+  \item \textbf{Severe and Flu} have the highest medians and widest spread.
+        Several Severe donors have scores above 0, and the best-separated
+        donors reach $\approx +0.4$.
+  \item This confirms the violin finding: the inflammatory program is elevated
+        in severe/flu conditions at the donor level too.
+\end{itemize}
+
+\textit{Right — Co-activation \% per donor:}
+\begin{itemize}[nosep]
+  \item \textbf{Healthy:} 3 of 4 donors have essentially 0\% co-activated
+        monocytes. The resting state is clean.
+  \item \textbf{Mild:} moderate — median around 5\%, but with one outlier
+        donor near 20\%.
+  \item \textbf{Severe:} \textbf{highest variance}. Most donors are low,
+        but one outlier donor has \textit{61\% co-activated monocytes} — an
+        extraordinary proportion. This donor appears to have a genuinely unusual
+        immune state where both programs are simultaneously on in the majority
+        of circulating monocytes.
+  \item \textbf{Flu:} similar pattern to Severe, with one very high outlier.
+\end{itemize}
+
+\textbf{Statistical tests (Wilcoxon rank-sum, Mild vs.\ Severe, donor-level):}
+The wide variance within Severe COVID — driven by donor heterogeneity — means
+that no comparison reaches clear statistical significance with only 4--7 donors
+per group. This is a known limitation of the dataset (small N) and does not
+negate the directional findings visible in the plots.
 
 \subsection{Differential expression and volcano plot \small\normalfont\textit{(Steps 13–14)}}
-\texttt{FindMarkers()} identifies genes differentially expressed between
-severe COVID monocytes and healthy monocytes.
-Results are shown as a volcano plot (log2 fold-change vs.\ adjusted p-value),
-highlighting the top upregulated and downregulated genes.
+
+The module scores tell us about the two specific programs we defined.
+But are there other genes that change in severe COVID monocytes?
+\texttt{FindMarkers()} compares all genes between Severe Covid monocytes and
+Healthy monocytes systematically, without pre-specifying any gene list.
+
+\textbf{Result:} 3,269 differentially expressed genes between Severe and Healthy
+monocytes (Wilcoxon test, $p_\text{adj} < 0.05$, $\log_2 \text{FC} > 0.25$).
+This large number confirms that monocytes are dramatically changed in severe disease.
+
+\subsubsection*{Step 14 — Volcano plot}
+
+\begin{center}
+  \includegraphics[width=0.95\textwidth]{plots/phase4/phase4_volcano_monocyte_DE.png}
+\end{center}
+
+The volcano plots each gene as a point.
+x-axis = $\log_2$ fold-change (how much more or less expressed in Severe vs Healthy).
+y-axis = $-\log_{10}$ adjusted p-value (higher = more significant).
+\textbf{Red} = significant both in fold-change and p-value.
+\textbf{Blue} = significant in p-value only. \textbf{Grey} = not significant.
+
+\textit{Top upregulated genes in Severe monocytes (red, top-right):}
+\begin{itemize}[nosep]
+  \item \textbf{IL1B} ($\log_2$FC $\approx 5$, $-\log P \approx 300$) — the strongest
+        single result. IL-1$\beta$ is the core cytokine of the monocyte inflammasome.
+        Its extreme upregulation in severe COVID monocytes directly confirms
+        the TNF/IL-1$\beta$ module finding.
+  \item \textbf{CXCL8} ($\log_2$FC $\approx 5$) — interleukin-8, a key neutrophil
+        recruiter. High CXCL8 from monocytes drives neutrophil-mediated lung
+        damage in severe COVID.
+  \item \textbf{CCL4, EREG, IL1R2, ADAMTS2} — additional inflammatory mediators
+        and receptors upregulated in the severe monocyte state.
+  \item \textbf{NFKBIA, TNFAIP3} — feedback inhibitors of NF-$\kappa$B signaling.
+        Their upregulation alongside IL1B/CXCL8 indicates the cell is trying to
+        brake its own activation — a hallmark of a chronically activated state.
+  \item \textbf{NXF3} (far right, $\log_2$FC $\approx 11$) — an RNA export factor.
+        This outlier is not an established COVID gene and may warrant follow-up.
+\end{itemize}
+
+\textit{Top downregulated genes in Severe monocytes (left side):}
+\begin{itemize}[nosep]
+  \item \textbf{TXNIP} (most significantly downregulated) — thioredoxin-interacting
+        protein, a negative regulator of oxidative stress. Its loss means a loss
+        of a brake on reactive oxygen species production.
+  \item \textbf{KLF2} — a transcription factor that keeps monocytes in a
+        ``patrolling'' anti-inflammatory state. Its downregulation is consistent
+        with monocytes losing their homeostatic identity.
+  \item \textbf{HLA-DQA1, HLA-DQB1} — MHC class II molecules required for
+        antigen presentation. Their downregulation is a well-documented feature
+        of severe COVID monocytes and is called \textbf{monocyte deactivation} or
+        \textbf{immunoparalysis} — the monocytes become pro-inflammatory but lose
+        their ability to present antigens to T cells.
+  \item \textbf{GBP4, CSF1R} — innate immune regulators further lost in severe disease.
+\end{itemize}
+
+\textbf{Overall picture from this volcano:} severe COVID monocytes gain a massive
+inflammatory output (IL-1$\beta$, CXCL8, CCL4) while simultaneously losing their
+homeostatic and antigen-presenting identity (KLF2, HLA-DQ, TXNIP). This is not
+a simple ``activation'' — it is a pathological reprogramming.
+
+\subsection{Phase 4 conclusion}
+
+Phase 4 directly tests the central hypothesis of the project at the single-cell level.
+The key findings are:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Monocytes expand with severity.}
+        From $\approx$35\% in Healthy to $\approx$50\% in Severe and $\approx$75\%
+        in Flu. CD4$^+$ T cells deplete in parallel — this is the emergency myeloid
+        shift typical of severe acute infection.
+
+  \item \textbf{The inflammatory program is elevated in Severe monocytes.}
+        TNF/IL-1$\beta$ scores are higher in Severe COVID donors than in Healthy
+        or Mild, at both the cell level (violin) and donor level (boxplot).
+
+  \item \textbf{The antiviral (ISG) program peaks in Mild COVID, not Severe.}
+        This is counterintuitive but important: it suggests that in mild disease,
+        the immune system successfully mounts an interferon response; in severe
+        disease, the response shifts toward unchecked inflammation, with ISG
+        activity not sustaining.
+
+  \item \textbf{Co-activated monocytes exist and are enriched in Severe COVID.}
+        The top-right quadrant (both programs active) is populated in all infected
+        conditions but virtually absent in Healthy. Some Severe donors have
+        extraordinarily high co-activation rates ($>$60\%).
+
+  \item \textbf{3,269 DE genes confirm broad monocyte reprogramming.}
+        The volcanic eruption of IL1B and CXCL8 combined with the loss of HLA-DQ
+        and KLF2 paints a cell that is simultaneously hyper-inflammatory and
+        functionally impaired.
+\end{enumerate}
+
+\textbf{Limitation:} with only 4--7 donors per group, within-group variance is high 
+and formal statistical tests lack power. The directional trends are consistent
+across all analyses, but confirmatory evidence in a larger or independent cohort
+is essential. That is exactly what Phase 5 does.
 
 % ─────────────────────────────────────────────
 \section{Phase 5 — Replication on GSE150861}
 % ─────────────────────────────────────────────
 
-\subsection{Overview \small\normalfont\textit{(Steps 1–3)}}
-GSE150861 (Guo et al.\ 2020) contains PBMCs from two severe COVID-19 patients
-treated with Tocilizumab (anti-IL-6R), sampled at days 1, 5, and 7.
-This phase checks whether the co-activated monocyte state found in Phase 4
-appears in a completely independent dataset, and whether it changes over time
-under treatment.
+\subsection{Phase 5 overview — the big picture}
 
-\subsection{QC, normalization, and clustering \small\normalfont\textit{(Steps 4–7)}}
-Exactly the same pipeline as Phases 1--3 is applied: QC filtering,
-LogNormalize, PCA (20 PCs), UMAP, and Louvain clustering at resolution 0.5.
-Cells are annotated with the same manual markers and SingleR reference.
+\textbf{Phase 4 found the co-activated state. Phase 5 checks whether it is real
+by looking for it in a completely different dataset.}
 
-\subsection{Module scoring and co-activation replication \small\normalfont\textit{(Steps 8–10)}}
-The same ISG and TNF/IL-1\(\beta\) gene lists from Phase 4 are used unchanged.
-A scatter plot of the two scores, now faceted by patient and coloured by
-time point, shows whether the co-activated quadrant is populated on day 1.
+A finding in one dataset could be a fluke — a property of those specific donors,
+that lab's protocol, or random noise. \textbf{Replication in an independent
+dataset is the strongest evidence} we can produce that a biological signal
+is genuine.
+
+GSE150861 (Guo et al., \textit{Nat Commun} 2020) is the ideal replication
+dataset because it differs from GSE149689 in almost every way that matters:
+different patients, different lab, different country, different sequencing run —
+but the same disease (severe COVID-19) and the same cell type (blood monocytes).
+It also adds something new: \textbf{Tocilizumab treatment and time-series sampling
+(Day 1, Day 5, Day 7)}, which lets us ask whether the co-activated state
+\textit{changes} during treatment.
+
+The exact same analysis pipeline is rerun from scratch on this new data:
+same QC thresholds, same normalization, same 20 PCs, same resolution 0.5,
+same ISG and TNF/IL-1$\beta$ gene lists. No parameters are changed.
+
+\subsection{Dataset and QC \small\normalfont\textit{(Steps 2–4)}}
+
+GSE150861 contains PBMCs from \textbf{2 severe COVID-19 patients (P1, P2)},
+each sampled at \textbf{Day 1, Day 5, and Day 7} of Tocilizumab treatment.
+Tocilizumab is an antibody that blocks the IL-6 receptor, used to dampen
+the cytokine storm in severe COVID-19.
+
+\textbf{Dataset scale:}
+\begin{itemize}[nosep]
+  \item 6 samples total (2 patients $\times$ 3 time points).
+  \item Before QC: $\sim$16,000 barcodes.
+  \item After QC (nFeature $>$ 200, $<$ 5,000; percent.mt $<$ 20\%): retained cells
+        cover all six patient-day combinations with reasonable representation.
+\end{itemize}
+
+\subsubsection*{Step 4a — QC violin plots}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase5/phase5_qc_violin.png}
+\end{center}
+
+The three panels show nFeature\_RNA, nCount\_RNA, and percent.mt for the
+full dataset (all 6 batches pooled). The shape is similar to Phase 1:
+\begin{itemize}[nosep]
+  \item \textbf{nFeature\_RNA}: a large body of cells between 500 and 3,000
+        genes, with a spike up to 6,000 (doublet candidates at the top).
+        The main mass looks healthy.
+  \item \textbf{nCount\_RNA}: most cells fall below 10,000 UMIs, with a tail
+        reaching $\sim$40,000. Similar to Phase 1, a few high-count outliers
+        are present.
+  \item \textbf{percent.mt}: the violin extends up to $\sim$80\% with a thin
+        spike, but the bulk sits below 20\%. This dataset has fewer high-mito
+        cells than Phase 1 GSE149689, which had nearly 25\% of cells above
+        the 20\% threshold.
+\end{itemize}
+
+\subsubsection*{Step 4b — QC scatter plots}
+
+\begin{center}
+  \includegraphics[width=0.95\textwidth]{plots/phase5/phase5_qc_scatter.png}
+\end{center}
+
+\begin{itemize}[nosep]
+  \item \textbf{Left (correlation $= -0.07$): nCount\_RNA vs percent.mt.}
+        The correlation is essentially zero — unlike Phase 1 where low-count
+        cells had dramatically elevated mito percentages, here the mito
+        percentage is flat across the count range. This suggests the cells
+        in this dataset are generally healthier, with fewer severely stressed
+        low-count cells in the capture.
+  \item \textbf{Right (correlation $= 0.9$): nCount\_RNA vs nFeature\_RNA.}
+        The tight upward curve (Pearson $r = 0.9$) is identical in shape to
+        Phase 1: more counts means more distinct genes detected, with
+        diminishing returns at higher counts. The curve is clean with no
+        anomalous off-diagonal blobs.
+\end{itemize}
+
+\subsection{Normalization, PCA, and choosing the number of PCs \small\normalfont\textit{(Step 5–6)}}
+
+The same normalization pipeline as Phase 2 is applied (LogNormalize,
+3,000 variable features, scale and regress out percent.mt).
+
+\subsubsection*{Step 6 — Elbow plot}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{plots/phase5/phase5_elbow_plot.png}
+\end{center}
+
+The elbow plot of this independent dataset is \textbf{strikingly similar
+to Phase 2}:
+\begin{itemize}[nosep]
+  \item PC1 dominates with std $\approx 8$ (slightly lower than Phase 1's 14,
+        reflecting the smaller and more homogeneous dataset — only severe COVID
+        patients, no healthy donors).
+  \item PCs 2--4 gradually decline from $\approx 7$ to $\approx 5$.
+  \item The curve flattens to a plateau around PC\,15--20.
+  \item The red dashed line at PC\,20 sits right at the beginning of the
+        flat noise floor.
+\end{itemize}
+
+\textbf{Decision: keep 20 PCs} — the same as Phase 2.
+The fact that an independent dataset with different patients and a different
+cell composition leads to the same optimal PC cutoff validates the Phase 2
+choice rather than being a coincidence.
+
+\subsection{UMAP and clustering \small\normalfont\textit{(Step 6, continued)}}
+
+\subsubsection*{Step 6 — UMAP overview (clusters, patient, time point)}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase5/phase5_umap_overview.png}
+\end{center}
+
+Three views of the same UMAP: coloured by cluster (left), by patient (middle),
+and by time point (right).
+
+\begin{itemize}[nosep]
+  \item \textbf{Clusters (left):} 17 clusters at resolution 0.5. The topology
+        is recognizable: a large left lymphoid continent (T/NK cells),
+        an isolated monocyte mass on the right (clusters 6, 10, 14, 16),
+        two isolated B cell blobs at the top, and a heterogeneous central
+        transition zone. This mirrors the Phase 2/3 structure even though
+        it is from a completely different dataset.
+
+  \item \textbf{Patient (middle):} P1 (salmon) and P2 (teal) cells are
+        \textbf{mixed throughout all major clusters}. Neither patient dominates
+        any single cluster. This is the ideal result: it means the clusters
+        reflect cell-type biology, not patient-specific batch effects.
+        If one patient had dominated the monocyte cluster, the co-activation
+        signal might just be that patient's idiosyncrasy.
+
+  \item \textbf{Time point (right):} Day 1 (red), Day 5 (green), Day 7 (blue).
+        The time point shows more visible separation: the right-side monocyte
+        mass is \textbf{strongly dominated by Day 1 (red)} cells, which then
+        become sparse by Day 5/7. The left lymphoid mass has more Day 5/7
+        cells. This is the first visual sign that the monocyte compartment
+        shrinks over time under Tocilizumab treatment.
+\end{itemize}
+
+\subsection{Cell-type annotation \small\normalfont\textit{(Step 7)}}
+
+\subsubsection*{Step 7a — Marker feature plots}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase5/phase5_marker_featureplots.png}
+\end{center}
+
+All 13 canonical markers from Phase 3 are applied to the GSE150861 UMAP:
+
+\begin{itemize}[nosep]
+  \item \textbf{CD14, LYZ, CST3}: all light up the same right-side clusters
+        (6 and 10 in particular). The monocyte identity of the right mass is
+        confirmed. FCGR3A (CD16) marks a smaller sub-cluster within that region,
+        consistent with non-classical monocytes.
+  \item \textbf{CD3D, CD3E, CD4, CD8A}: all concentrated in the large left
+        continent, with CD4 and CD8A separating upper vs.\ lower sub-regions
+        just as in Phase 3.
+  \item \textbf{MS4A1, CD79A}: light up the two isolated top blobs
+        exclusively — B cells.
+  \item \textbf{NKG7, GNLY}: broad expression in the lower-left, marking
+        NK cells / cytotoxic T cells.
+  \item \textbf{FCER1A}: a small central cluster, consistent with
+        dendritic cells.
+\end{itemize}
+
+The same spatial logic as Phase 3 is reproduced entirely independently.
+This confirms that the cell-type architecture of PBMC datasets is stable
+across different patients and sequencing runs.
+
+\subsubsection*{Step 7b — SingleR annotation UMAP}
+
+\begin{center}
+  \includegraphics[width=0.95\textwidth]{plots/phase5/phase5_umap_celltype.png}
+\end{center}
+
+The SingleR annotation agrees with the manual markers on every major population:
+
+\begin{itemize}[nosep]
+  \item \textbf{Monocytes (purple):} the entire right-side mass (two blobs,
+        consistent with classical and non-classical monocyte sub-sets).
+  \item \textbf{CD4$^+$ T-cells (olive):} upper-left continent.
+  \item \textbf{CD8$^+$ T-cells (green):} lower-left continent.
+  \item \textbf{NK cells (hot pink):} lower-left, slightly below and
+        intermixed with CD8$^+$ T cells — the same CD8/NK ambiguity
+        seen in Phase 3.
+  \item \textbf{B-cells (orange):} the two isolated top blobs, labeled
+        cleanly with no cross-contamination from other types.
+  \item \textbf{Rare populations (Erythrocytes, HSC, Eosinophils, Macrophages):}
+        small scattered clusters in the central transition zone.
+\end{itemize}
+
+\subsection{Cell-type composition over time \small\normalfont\textit{(Step 11)}}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase5/phase5_composition_time.png}
+\end{center}
+
+The barplot shows the fraction of each cell type at each time point, split
+by patient. This is the Phase 4 ``composition barplot'' idea applied
+longitudinally.
+
+\begin{itemize}[nosep]
+  \item \textbf{P1 — Day 1:} Monocytes (purple) $\approx$30\% of cells.
+        NK cells $\approx$20\%. CD4$^+$/CD8$^+$ T cells together $\approx$30\%.
+  \item \textbf{P1 — Day 5:} Monocytes \textbf{collapse to $\approx$8\%}.
+        CD8$^+$ T cells (bright green) dominate, rising to $\approx$50\%.
+        NK cells also present. The monocyte compartment is dramatically reduced.
+  \item \textbf{P1 — Day 7:} no data for P1 at Day 7 (shown as empty panel),
+        suggesting this time point was not collected or passed QC for P1.
+  \item \textbf{P2 — Day 1:} Monocytes $\approx$35\%. NK cells $\approx$35\%.
+        T cells smaller.
+  \item \textbf{P2 — Day 5:} Monocytes nearly disappear ($<$5\%). NK cells
+        also drop sharply. CD4$^+$ and CD8$^+$ T cells together dominate.
+  \item \textbf{P2 — Day 7:} NK cells \textbf{rebound dramatically to
+        $\approx$50\%} — the largest single compartment at this time point.
+        CD4$^+$ T cells also return. Monocytes remain low.
+\end{itemize}
+
+\textbf{Key message:} Tocilizumab treatment coincides with a rapid
+collapse of the monocyte compartment and a rebound of lymphocytes.
+This mirrors the Phase 4 observation that monocyte expansion is a
+feature of active disease — and it reverses under treatment.
+
+\subsection{Co-activation replication scatter \small\normalfont\textit{(Step 10)}}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase5/phase5_coactivation_scatter.png}
+\end{center}
+
+This is the central replication plot: the same ISG vs TNF/IL-1$\beta$
+scatter from Phase 4, now in GSE150861, faceted by patient and coloured
+by time point.
+
+\begin{itemize}[nosep]
+  \item \textbf{Day 1 (red dots):} in both P1 and P2, Day 1 cells
+        are concentrated in the \textbf{top-left} quadrant (high TNF/IL-1$\beta$,
+        low ISG) and the \textbf{top-right} quadrant (co-activated).
+        The co-activated top-right population is clearly present on Day 1
+        \textbf{in both patients}. This directly replicates the Phase 4 finding.
+
+  \item \textbf{Day 5 (blue dots):} cells shift downward. The top quadrants
+        are less populated. TNF/IL-1$\beta$ scores drop substantially.
+        Fewer cells are in the co-activated quadrant. This is the first
+        quantitative sign that Tocilizumab is suppressing the inflammatory
+        program.
+
+  \item \textbf{Day 7 (green dots):} the smallest number of cells (fewest
+        monocytes remaining). They appear scattered and mostly in the lower
+        half — the inflammatory component is further reduced in P1 and shows
+        partial recovery in P2.
+
+  \item \textbf{Asymmetry between P1 and P2:} P2 monocytes are more tightly
+        clustered near $x = -0.3$ (ISG near zero) with high TNF/IL-1$\beta$
+        on Day 1. P1 monocytes are spread more widely in ISG score.
+        This patient-to-patient variability is consistent with Phase 4,
+        where donor heterogeneity was high even within the same severity group.
+\end{itemize}
 
 \subsection{Longitudinal dynamics and Tocilizumab effect \small\normalfont\textit{(Steps 11–12)}}
-The percentage of co-activated monocytes and the mean scores are computed
-per patient per day.
-Line plots track how these values change from day 1 to day 7.
-Violin plots and Wilcoxon tests compare day 1 against later time points,
-probing whether Tocilizumab reduces the TNF/IL-1\(\beta\) component
-while the ISG component persists.
+
+\subsubsection*{Step 11 — Longitudinal line plots}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase5/phase5_longitudinal_dynamics.png}
+\end{center}
+
+Each point is one patient at one time point. Lines connect the same patient
+across days.
+
+\textit{Left — Co-activation \% over time:}
+\begin{itemize}[nosep]
+  \item Both patients start with \textbf{$\sim$30--35\% co-activated monocytes}
+        on Day 1 — matching the high outlier donors seen in Phase 4.
+  \item By Day 5, both drop sharply: P1 to $\sim$11\%, P2 to $\approx$0\%.
+  \item By Day 7: P1 is missing; P2 partially recovers to $\sim$20\%.
+  \item The consistent Day 1 $\to$ Day 5 drop across both patients, \textit{in
+        the same direction}, is the key result. With only two patients it
+        cannot be tested statistically, but the direction is unambiguous.
+\end{itemize}
+
+\textit{Middle — ISG score over time:}
+\begin{itemize}[nosep]
+  \item P2 starts near zero and stays low across all days —
+        no strong antiviral response at the ISG level.
+  \item P1 starts near zero on Day 1, then \textbf{rises to 0.04 on Day 5}.
+        This is the opposite direction from the TNF/IL-1$\beta$ response.
+        The ISG program either persists or increases while the inflammatory
+        program is suppressed by Tocilizumab.
+  \item This is biologically coherent: Tocilizumab blocks IL-6-mediated
+        signaling, which suppresses the inflammasome-driven inflammatory
+        genes (TNF, IL1B) but does not inhibit the interferon pathway
+        (which is driven by type-I interferons, not IL-6).
+\end{itemize}
+
+\textit{Right — TNF/IL-1$\beta$ score over time:}
+\begin{itemize}[nosep]
+  \item Both patients start \textbf{high ($\approx +1.0$)} on Day 1.
+  \item Both \textbf{drop sharply} by Day 5: P1 to $\approx +0.5$,
+        P2 to $\approx -1.0$ (near-complete suppression).
+  \item P2 partially rebounds to $\approx +0.2$ by Day 7, while P1's Day 7
+        data is absent.
+  \item The Day 1 $\to$ Day 5 drop in both patients is the clearest
+        Tocilizumab signal: blocking IL-6R measurably reduces the
+        TNF/IL-1$\beta$ program in monocytes within 4 days.
+\end{itemize}
+
+\subsubsection*{Step 12 — Violin plots by time point}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase5/phase5_toci_violin.png}
+\end{center}
+
+The violin plots show the full distribution of all monocytes at each time point.
+
+\textit{Top panel — ISG score:}
+\begin{itemize}[nosep]
+  \item Day 1: narrow violin centered near 0, extending slightly above.
+  \item Day 5: \textbf{the body widens and the upper spike grows} —
+        consistent with the P1-driven ISG rise seen in the line plot.
+        There are more ISG-high cells on Day 5 than on Day 1.
+  \item Day 7: the ISG body is still present but slightly narrower.
+\end{itemize}
+
+\textit{Bottom panel — TNF/IL-1$\beta$ score:}
+\begin{itemize}[nosep]
+  \item \textbf{Day 1}: very wide, heavy-bodied violin spanning from $-1$
+        to $+3$. The entire upper range is populated — many cells with
+        very high inflammatory scores. This is the active disease state.
+  \item \textbf{Day 5}: the violin \textbf{collapses dramatically}.
+        It becomes narrow and bimodal, with most cells near 0 or below.
+        The upper inflammatory tail is largely gone. This is the clearest
+        visual demonstration of Tocilizumab suppressing the program.
+  \item \textbf{Day 7}: broader than Day 5 but in a new shape — a wide
+        flat body rather than the tall spiky Day 1 shape. Partial recovery
+        of the inflammatory program is visible.
+\end{itemize}
+
+\subsection{Phase 5 conclusion}
+
+Phase 5 achieves its goal: the co-activated monocyte state from Phase 4
+\textbf{replicates in an independent dataset}. The key findings are:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Replication confirmed.}
+        Both patients in GSE150861 have $\sim$30\% co-activated monocytes
+        on Day 1 — matching the range seen in Phase 4 severe donors and
+        validating that the Phase 4 signal was not dataset-specific.
+
+  \item \textbf{The cell-type structure is stable across datasets.}
+        The UMAP topology, SingleR labels, and marker gene patterns are
+        essentially identical to Phase 3, despite entirely different
+        patients and a different study design.
+
+  \item \textbf{The co-activated state is responsive to treatment.}
+        Tocilizumab reduces co-activation from $\sim$30\% to near zero
+        within 4 days in both patients, primarily by suppressing the
+        TNF/IL-1$\beta$ component. The ISG (antiviral) component is
+        unaffected or slightly increases — exactly what is expected
+        given that Tocilizumab targets the IL-6 axis, not the interferon
+        axis.
+
+  \item \textbf{The monocyte compartment collapses under treatment.}
+        As monocyte co-activation drops, monocytes also decline as
+        a fraction of blood cells, replaced by a lymphocyte rebound.
+        The blood composition shift mirrors the severity-related
+        shift seen in Phase 4.
+
+  \item \textbf{Limitation: only 2 patients.}
+        With N = 2, no statistical test is meaningful.
+        Both patients show consistent effects in the same direction,
+        which is strong qualitative evidence, but it cannot substitute
+        for a larger cohort.
+\end{enumerate}
+
+\textbf{Together, Phases 4 and 5 establish the single-cell part of
+the story:} co-activated monocytes exist, are enriched in severe
+COVID, replicate in an independent cohort, and are suppressed by
+the treatment that reduces disease severity.
+The next phase asks whether the same signal is detectable in bulk
+RNA-seq data, where individual cells are not distinguished.
+
+% ─────────────────────────────────────────────
+\section{Phase 6 — scRNA-seq Visualization Summary}
+% ─────────────────────────────────────────────
+
+\subsection{Phase 6 overview — the big picture}
+
+\textbf{Phases 3–5 produced the results. Phase 6 assembles them into a clean, complete visual story.}
+
+At this point we have:
+\begin{itemize}[nosep]
+  \item An annotated UMAP with all PBMC cell types (Phase 3).
+  \item Evidence that monocytes expand and gain an inflammatory program in severe COVID (Phase 4).
+  \item Replication of the co-activated monocyte state in an independent dataset (Phase 5).
+\end{itemize}
+
+Phase 6 re-creates all the key plots in consistent, publication-quality style and assembles a
+four-panel summary figure that tells the whole scRNA-seq story at a glance.
+No new analysis is done — this phase is about \textit{presentation}.
+
+\subsection{The annotated UMAP}
+
+\begin{center}
+  \includegraphics[width=0.9\textwidth]{plots/phase6/phase6_01_umap_celltype.png}
+\end{center}
+
+This is the final reference map: the full GSE149689 dataset (55,548 cells) coloured by
+SingleR cell-type label, with text labels placed on the plot.
+
+The five major compartments are clearly resolved:
+\begin{itemize}[nosep]
+  \item \textbf{Monocytes (purple)} — the large right-side mass, the dominant cell type
+        in this COVID PBMC dataset.
+  \item \textbf{NK cells (pink)} — upper-left, a distinct and well-separated island.
+  \item \textbf{CD8$^+$ T-cells (olive)} — middle-left, next to NK cells.
+  \item \textbf{CD4$^+$ T-cells (orange)} — lower-left pocket.
+  \item \textbf{B-cells (salmon)} — bottom isolated island, completely separate from
+        everything else.
+\end{itemize}
+Smaller populations are also labeled: DC (dendritic cells) sitting between myeloid and
+lymphoid continents, Neutrophils in the upper-right monocyte area, and rare cells
+(Erythrocytes, HSC, Eosinophils, Macrophages) scattered in the center transition zone.
+
+This single plot is the map the reader needs to orient all further analysis.
+
+\subsection{Cell-type composition by severity}
+
+\subsubsection*{UMAP split by severity}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase6/phase6_02_umap_split_severity.png}
+\end{center}
+
+Each panel shows only cells from one condition, coloured by cell type.
+The composition shifts are visible by eye:
+
+\begin{itemize}[nosep]
+  \item \textbf{Healthy:} the UMAP is balanced. The left lymphoid continent (T, NK cells)
+        and the right monocyte mass are roughly comparable in density.
+  \item \textbf{Mild:} similar to Healthy. No dramatic shift yet.
+  \item \textbf{Severe:} the monocyte (purple) mass on the right is clearly bigger and
+        denser. The left continent is visibly thinner — \textbf{T and NK cells are depleted}.
+  \item \textbf{Flu:} the monocyte mass occupies most of the plot. Strikingly, a large
+        separate purple blob drifts to the far top-right — a Flu-specific monocyte
+        sub-state that is transcriptionally distinct enough to detach from the main mass.
+\end{itemize}
+
+\subsubsection*{Composition barplot}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{plots/phase6/phase6_09_composition_barplot.png}
+\end{center}
+
+The barplot converts the visual impression into exact proportions.
+
+\begin{itemize}[nosep]
+  \item \textbf{NK cells (yellow, bottom):} Healthy $\approx$25\%, dropping steadily to
+        near-zero in Flu. NK cell loss tracks disease severity.
+  \item \textbf{Monocytes (purple):} Healthy $\approx$35\%, Mild $\approx$50\%,
+        Severe $\approx$50\%, Flu $\approx$75\%.
+        Monocyte expansion is most extreme in Flu, followed by Severe.
+  \item \textbf{CD8$^+$ T-cells (lavender):} relatively stable but shrinks in Severe and Flu.
+  \item \textbf{CD4$^+$ T-cells (light yellow-green):} Healthy $\approx$15\%, progressively
+        smaller in Severe and Flu — \textbf{CD4$^+$ T cell depletion} is a hallmark of
+        severe COVID-19 lymphopenia.
+  \item \textbf{B-cells (teal, top):} present in all conditions with modest variation.
+\end{itemize}
+
+\textbf{Message:} severe COVID and especially Flu dramatically shift the blood toward monocytes
+at the expense of NK and T cells. This monocyte flooding sets the stage for the inflammatory
+dysregulation we measure next.
+
+\subsection{Where are the ISG and inflammatory genes expressed?}
+
+\subsubsection*{ISG feature plots (ISG15, IFIT1, MX1)}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase6/phase6_03_feature_ISG.png}
+\end{center}
+
+Each plot colours every cell by the expression level of one ISG gene.
+Yellow = high; dark purple = zero.
+
+\begin{itemize}[nosep]
+  \item All three ISGs (\textit{ISG15}, \textit{IFIT1}, \textit{MX1}) light up a
+        \textbf{specific sub-region of the monocyte mass} on the right — consistent with
+        the ISG-high monocyte cluster (Cluster 10 from Phase 3) being spatially
+        distinct within the myeloid continent.
+  \item ISG expression is also visible in the \textbf{isolated top cluster}
+        (the small island above the main monocyte mass), confirming that this
+        population is interferon-driven.
+  \item The lymphoid left continent (T, NK, B cells) shows low but non-zero ISG
+        expression — expected, as interferon activates all immune cells to some
+        degree during infection.
+  \item \textit{ISG15} has the widest expression; \textit{IFIT1} and \textit{MX1}
+        are more restricted to the ISG-high monocyte sub-cluster.
+\end{itemize}
+
+\subsubsection*{TNF/IL-1$\beta$ feature plots (TNF, IL1B, CCL3)}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase6/phase6_04_feature_TNF_IL1.png}
+\end{center}
+
+\begin{itemize}[nosep]
+  \item \textit{IL1B} is the most striking: a \textbf{bright yellow core} lights up a
+        specific sub-region within the monocyte mass, corresponding precisely to
+        Cluster 7 (IL-1$\beta^+$ inflammasome-active monocytes from Phase 3).
+        Virtually no expression outside that cluster.
+  \item \textit{CCL3} spreads more broadly across the monocyte mass —
+        it is expressed at moderate levels throughout the myeloid continent, indicating
+        that chemokine production is a general monocyte feature, not sub-cluster-specific.
+  \item \textit{TNF} expression is detectable but more diffuse, consistent with TNF
+        being produced at lower levels across a wider range of activated cells.
+  \item The lymphoid continent is essentially dark for all three genes —
+        TNF/IL-1$\beta$ activity is \textbf{myeloid-specific} in this dataset.
+\end{itemize}
+
+\textbf{Taken together:} the ISG and inflammatory programs live in \textit{different
+spatial locations} within the monocyte mass on the UMAP. This spatial separation
+is why co-activation (both programs on in the same cell) is the
+interesting finding — most cells have one or neither program active.
+
+\subsection{Module scores and co-activation}
+
+\subsubsection*{Violin plots — module scores by severity}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase6/phase6_05_violin_module_scores.png}
+\end{center}
+
+\textit{Left — ISG score:}
+\begin{itemize}[nosep]
+  \item \textbf{Healthy:} narrow, centered near $-0.5$. ISG program is off.
+  \item \textbf{Mild:} wide, bimodal shape — two sub-populations of monocytes, one
+        with the ISG program partially on and one without.
+        \textbf{Mild COVID drives the strongest ISG response at the cell level.}
+  \item \textbf{Severe:} relatively narrow, centered near $-0.5$. Similar to Healthy.
+        The ISG program is not broadly active in severe COVID monocytes.
+  \item \textbf{Flu:} narrow, similar to Severe and Healthy.
+\end{itemize}
+
+\textit{Right — TNF/IL-1$\beta$ score:}
+\begin{itemize}[nosep]
+  \item \textbf{Healthy:} tight mass at $-1$. Program is silent.
+  \item \textbf{Mild:} slightly wider, still mostly low.
+  \item \textbf{Severe:} \textbf{markedly wider and taller} — extends to $\approx +3$.
+        A large fraction of severe COVID monocytes actively run the inflammatory program.
+  \item \textbf{Flu:} similarly wide, multi-peaked — monocytes span a range of
+        inflammatory states.
+\end{itemize}
+
+The contrast is the key message: \textbf{Mild COVID = ISG-dominant; Severe COVID = inflammation-dominant.}
+The programs are not co-elevated in the same group — they shift in opposite directions as
+disease worsens.
+
+\subsubsection*{Donor co-activation boxplot}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{plots/phase6/phase6_06_donor_coactivation_boxplot.png}
+\end{center}
+
+Each dot is one donor; the y-axis is the percentage of that donor's monocytes that are
+co-activated (both ISG $>0$ and TNF/IL-1$\beta >0$ simultaneously).
+
+\begin{itemize}[nosep]
+  \item \textbf{Healthy:} all donors cluster near 0\%. Resting monocytes are never co-activated.
+  \item \textbf{Mild:} wide spread. Most donors are in the 0–5\% range, but
+        \textbf{one outlier donor reaches $\approx$61\%} — an extraordinary co-activation
+        rate suggesting that individual mild-disease patients can mount an unusually
+        strong dual response.
+  \item \textbf{Severe:} tight cluster, mostly 0–5\% with one outlier near 13\%.
+        Counter-intuitively, the \textit{median} co-activation rate in Severe is actually
+        \textit{lower} than in Mild. The severe state shifts monocytes toward pure inflammation
+        (top-left quadrant) rather than dual co-activation.
+  \item \textbf{Flu:} the highest and most consistent co-activation, with a median
+        near $\approx$20\% and several donors above 20\%.
+\end{itemize}
+
+\textbf{Key nuance:} co-activation rate does not simply increase with disease severity.
+Flu has the highest co-activation; Severe COVID monocytes are highly inflamed but their
+ISG response is relatively suppressed, pushing them out of the co-activated quadrant into
+the ``pure inflammation'' quadrant.
+
+\subsection{Differential expression volcano}
+
+\begin{center}
+  \includegraphics[width=0.95\textwidth]{plots/phase6/phase6_07_volcano_monocyte_DE.png}
+\end{center}
+
+Severe COVID monocytes vs Healthy monocytes; 3,269 significantly DE genes.
+This is the same analysis as Phase 4, here presented in final plotting style.
+
+Key genes visible:
+\begin{itemize}[nosep]
+  \item \textbf{Top upregulated (top-right):} \textit{IL1B}, \textit{CXCL8}, \textit{CCL3},
+        \textit{OSM}, \textit{PTGS2} — the core inflammatory program.
+        \textit{NFKBIA} and \textit{TNFAIP3} also appear — negative feedback regulators
+        of NF-$\kappa$B trying to brake the response.
+  \item \textbf{Top downregulated (top-left):} \textit{TXNIP}, \textit{KLF2},
+        \textit{HLA-DPA1}, \textit{HLA-DRB1}, \textit{HLA-DQB1} — loss of the cell's
+        homeostatic identity and antigen-presentation capacity.
+  \item \textbf{Outlier (far right):} \textit{NXF3} at $\log_2$FC $\approx 11$,
+        an RNA export factor of unclear COVID relevance.
+\end{itemize}
+
+Severe COVID monocytes are not simply ``activated'' — they gain a massive inflammatory output
+while simultaneously losing their ability to present antigens to T cells (HLA downregulation).
+This dual change (gain inflammation + lose function) is the molecular definition of the
+pathological monocyte reprogramming seen in severe COVID.
+
+\subsection{Cluster marker heatmap}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase6/phase6_08_marker_heatmap.png}
+\end{center}
+
+Top 5 marker genes per cluster across all 35 clusters (the expanded final object).
+Yellow = high expression; purple = low.
+
+The heatmap shows a clean diagonal structure: each gene block lights up in one cluster
+and is dark everywhere else, confirming that the cluster boundaries found by Louvain
+correspond to genuinely distinct transcriptional programs.
+Notable sub-clusters visible in this expanded view:
+\begin{itemize}[nosep]
+  \item Multiple monocyte sub-clusters (mid-right of the heatmap), each with distinct
+        marker genes, confirming the diversity of monocyte states described in Phase 3.
+  \item Clear T cell sub-clusters on the left of the heatmap, with \textit{CD8A}, \textit{GZMK},
+        \textit{LEF1}, and \textit{IL7R} separating effector memory, naive, and helper sub-types.
+  \item A compact isolated NK cluster with \textit{PRF1} and \textit{KIR} family genes.
+  \item The B cell cluster block with \textit{MS4A1}, \textit{CD79A}, and immunoglobulin genes.
+\end{itemize}
+
+\subsection{Replication in GSE150861}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase6/phase6_10_replication_coactivation.png}
+\end{center}
+
+The co-activation scatter from Phase 5, presented in final style.
+Each dot is one monocyte from GSE150861; colour = time point.
+
+Key observations (same as Phase 5):
+\begin{itemize}[nosep]
+  \item \textbf{Day 1 (teal/green):} both P1 and P2 show monocytes in the top-right
+        (co-activated) quadrant. The co-activated state is confirmed in both patients.
+  \item \textbf{Day 5 (orange):} cells shift downward — the TNF/IL-1$\beta$ component
+        drops as Tocilizumab suppresses inflammation. Fewer cells in the top quadrants.
+  \item \textbf{Day 7 (purple):} monocytes are scarce and mostly in the lower half.
+        The inflammatory program is further reduced.
+  \item P2 shows a tighter ISG-near-zero pattern compared to P1's wider spread —
+        patient-to-patient variability is real and present even within the same condition.
+\end{itemize}
+
+\subsection{Summary panel}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase6/phase6_summary_panel.png}
+\end{center}
+
+The four-panel figure brings the entire scRNA-seq story into one image:
+
+\begin{itemize}[nosep]
+  \item \textbf{A — Annotated UMAP:} the reference map. Five major cell types,
+        spatially separated, labeled.
+  \item \textbf{B — Co-activation boxplot:} Flu and Mild donors have the most
+        co-activated monocytes; Healthy donors have essentially none.
+        The one extreme outlier (Mild, $\approx$61\%) is the clearest example of
+        a genuinely co-activated individual.
+  \item \textbf{C — Volcano plot:} IL1B and CXCL8 are the dominant upregulated genes;
+        HLA-DPA1 and KLF2 among the most downregulated. 3,269 DE genes in total.
+  \item \textbf{D — Replication scatter:} P1 and P2 from GSE150861, Day 1 monocytes
+        clearly in the co-activated quadrant, shifted to near-zero by Day 5.
+\end{itemize}
+
+\subsection{Phase 6 conclusion}
+
+Phase 6 closes the single-cell chapter of the project.
+The complete scRNA-seq story, assembled here, is:
+
+\begin{enumerate}[nosep]
+  \item The blood immune landscape is dramatically altered in COVID-19:
+        monocytes expand, NK and T cells deplete, and the composition shifts
+        proportionally with disease severity.
+  \item Within the monocyte compartment, two programs — antiviral (ISG) and
+        inflammatory (TNF/IL-1$\beta$) — are spatially and biologically distinct.
+        Most cells run at most one at a time.
+  \item The ISG program peaks in Mild COVID; the inflammatory program peaks in
+        Severe COVID and Flu. These two programs diverge, not converge, as disease worsens.
+  \item A subset of monocytes runs both programs simultaneously (co-activated state).
+        This state is present in infected conditions, absent in Healthy, and variable
+        across donors.
+  \item The co-activated state is confirmed in an independent dataset (GSE150861)
+        and is suppressed within 4 days of Tocilizumab treatment.
+\end{enumerate}
+
+\textbf{These five points are the scRNA-seq contribution of this project.}
+The single-cell analysis is complete. The next phase shifts to bulk RNA-seq data,
+asking whether the same monocyte inflammatory signal is detectable when individual
+cells are no longer distinguished.
+
+% ─────────────────────────────────────────────────────────
+\subsection{What is bulk RNA-seq and how is it different from scRNA-seq?}
+
+In scRNA-seq, each cell is sequenced individually — you get one expression profile per cell.
+In \textbf{bulk RNA-seq}, all the cells in a sample are \textbf{pooled and sequenced together}.
+The result is one single number per gene per sample, representing the \textit{average}
+expression across all cell types present in the sample.
+
+\begin{itemize}[nosep]
+  \item \textbf{Advantage:} Bulk RNA-seq is cheaper, works on more samples, and has higher
+        statistical power because you can study dozens or hundreds of patients.
+  \item \textbf{Disadvantage:} You lose cell-type resolution. If monocytes go up and T cells
+        go down, you might see only a small net change because the two effects cancel out.
+\end{itemize}
+
+The datasets used in the bulk phases (GSE152418 and others) are \textbf{whole-blood} samples:
+all the cell types in blood are mixed together. So any monocyte-specific signal we found
+in Phases 3–6 will now be diluted by signals from T cells, B cells, NK cells, and red blood cells.
+We are asking: \textit{is the monocyte inflammatory signal strong enough to be detectable
+even after being mixed with everything else?}
+
+\subsubsection*{What is a library size?}
+
+In bulk RNA-seq, each sample goes through a sequencing run that produces a certain number
+of total reads. This is called the \textbf{library size}. It is the bulk equivalent of
+\texttt{nCount\_RNA} in scRNA-seq.
+
+If one sample has 13 million reads and another has 20 million, you cannot directly compare
+their gene counts — the second sample has simply been sequenced more deeply.
+DESeq2 (used in Phase 8) handles this automatically via a normalization step called
+\textbf{size factor estimation}, so that downstream comparisons between samples are fair.
+
+% ─────────────────────────────────────────────
+\section{Phase 7 — Bulk RNA-seq Loading and EDA}
+% ─────────────────────────────────────────────
+
+\subsection{Phase 7 overview — the big picture}
+
+\textbf{The single-cell story is done. Phase 7 opens the bulk chapter by asking: what data do we have, and is it usable?}
+
+Before any statistical test, we need to understand our dataset:
+how many samples, who they are, how much data each has, and
+whether any confounders (like gender imbalance between groups) might
+contaminate the results. This is called \textbf{exploratory data analysis (EDA)}.
+
+The dataset is \textbf{GSE152418} (Arunachalam et al., \textit{Science} 2020) —
+whole-blood RNA-seq from COVID-19 patients across different severity levels, plus healthy controls.
+
+Phase 7 in three steps:
+\begin{enumerate}[nosep]
+  \item \textbf{Load and clean} — read the count matrix and sample metadata, assign severity groups.
+  \item \textbf{Inspect} — check sample sizes, library sizes, and gender balance.
+  \item \textbf{Filter and align} — remove low-quality genes and verify the count matrix
+        matches the metadata exactly before passing everything to Phase 8.
+\end{enumerate}
+
+\subsection{Load data and define severity groups \small\normalfont\textit{(Steps 2–6)}}
+
+The raw count matrix (\texttt{GSE152418\_p20047\_Study1\_RawCounts.txt.gz}) and
+sample metadata (downloaded from GEO) are loaded into R.
+
+\textbf{Raw matrix:} 60,683 genes $\times$ 126 samples before any filtering.
+
+Each sample carries a clinical severity label from the original paper:
+\textit{Healthy}, \textit{Moderate}, \textit{Severe}, \textit{ICU}, or \textit{Convalescent}.
+For the differential expression contrast we need two groups. The grouping used is:
+
+\begin{center}
+\begin{tabular}{ll}
+\hline
+\textbf{Original label(s)} & \textbf{Analysis group} \\
+\hline
+Healthy, Moderate & \texttt{Healthy\_Mild} \\
+Severe, ICU       & \texttt{Severe\_ICU} \\
+Convalescent      & excluded \\
+\hline
+\end{tabular}
+\end{center}
+
+Convalescent samples are excluded because they represent a recovery state, not
+active disease — including them would blur the Healthy vs Severe contrast.
+
+\textbf{Final sample counts after exclusion:}
+\begin{itemize}[nosep]
+  \item \texttt{Healthy\_Mild}: 21 samples
+  \item \texttt{Severe\_ICU}: 12 samples
+  \item Total: 33 samples
+\end{itemize}
+
+\subsection{Exploratory plots \small\normalfont\textit{(Steps 7–12)}}
+
+\subsubsection*{Severity distribution}
+
+\begin{center}
+  \includegraphics[width=0.75\textwidth]{plots/phase7/phase7_severity_distribution.png}
+\end{center}
+
+\begin{itemize}[nosep]
+  \item The comparison is 21 vs 12 — not perfectly balanced, but a ratio of roughly
+        2:1 is acceptable for DESeq2 which does not require equal group sizes.
+  \item The larger Healthy/Mild group gives us more power on the control side,
+        which is the benchmark we are comparing against.
+  \item This is a larger comparison group than the scRNA-seq dataset (4 Healthy donors there),
+        which is exactly the goal of moving to bulk data — more statistical power.
+\end{itemize}
+
+\subsubsection*{Library sizes}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase7/phase7_library_sizes.png}
+\end{center}
+
+Each bar is one sample, sorted by library size (ascending), coloured by severity group.
+
+\begin{itemize}[nosep]
+  \item Library sizes range from \textbf{$\sim$13 million to $\sim$20 million reads} — a
+        roughly 1.5$\times$ range. This is narrow enough that DESeq2 size-factor
+        normalization will handle it without issues.
+  \item \textbf{No systematic severity bias:} red (Severe\_ICU) and blue (Healthy\_Mild) bars
+        are intermixed throughout the distribution. There is no pattern where Severe samples
+        systematically have more or fewer reads. This is important — it means library size
+        is not confounded with severity, and any gene-level differences we detect in Phase 8
+        will not be artifacts of depth differences between groups.
+  \item \textbf{No outlier samples} with extremely low ($<$5M) or extremely high ($>$50M)
+        counts that would require removal.
+\end{itemize}
+
+\subsubsection*{Gender balance}
+
+\begin{center}
+  \includegraphics[width=0.75\textwidth]{plots/phase7/phase7_gender_balance.png}
+\end{center}
+
+\begin{itemize}[nosep]
+  \item \textbf{Healthy\_Mild:} 13 Female, 8 Male — female-majority group.
+  \item \textbf{Severe\_ICU:} 5 Female, 7 Male — male-majority group.
+  \item This is a \textbf{gender imbalance across severity groups}.
+        Males are known to have worse COVID-19 outcomes on average, so more males in the
+        Severe group is expected biologically — but it means that if we do not account for
+        gender in our statistical model, some genes that differ between males and females
+        (rather than between healthy and sick) will appear as false positives.
+  \item \textbf{This imbalance is a confounder.} We flag it now and address it in Phase 9
+        by including gender as a covariate in the DESeq2 model.
+\end{itemize}
+
+\subsection{Gene filtering and matrix alignment \small\normalfont\textit{(Steps 10–12)}}
+
+After aligning the count matrix columns to the metadata rows (matching by sample title),
+low-expressed genes are removed.
+
+\textbf{Filtering rule:} keep a gene if it has $\geq 10$ counts in at least 3 samples.
+This removes genes that are essentially absent from the dataset — they contribute
+no information and only increase the multiple-testing burden in Phase 8.
+
+\textbf{Results:}
+\begin{itemize}[nosep]
+  \item Genes before filtering: 60,683
+  \item Genes after filtering: $\sim$20,000--25,000 (the informative protein-coding and lncRNA genes)
+  \item The major portion removed are zero-count or near-zero-count genes —
+        mostly lncRNAs, pseudogenes, and tissue-specific genes not expressed in blood.
+\end{itemize}
+
+The filtered, aligned count matrix and the cleaned metadata are the two outputs
+passed to Phase 8.
+
+\subsection{Phase 7 conclusion}
+
+Phase 7 confirmed that the GSE152418 bulk dataset is clean and ready for analysis:
+
+\begin{itemize}[nosep]
+  \item \textbf{33 usable samples} in two well-defined severity groups (21 Healthy/Mild, 12 Severe/ICU).
+  \item \textbf{Library sizes are balanced} between groups — no depth confounding.
+  \item \textbf{Gender is imbalanced} (more males in Severe) — this will be corrected in Phase 9.
+  \item \textbf{Gene filtering} reduced the matrix to a focused set of expressed genes,
+        improving the quality of downstream statistical tests.
+\end{itemize}
+
+The key transition from Phase 6 to Phase 7 is the shift from individual-cell resolution to
+sample-level resolution. We can no longer see which monocyte is active — we see a number
+for the whole blood sample. But with 33 samples instead of 20 donors, we gain statistical
+power. Phase 8 will use that power to ask: which genes are significantly different between
+Severe and Healthy whole blood?
+
+% ─────────────────────────────────────────────────────────
+\subsection{DESeq2 — how bulk differential expression works}
+
+\subsubsection*{The core question}
+
+Given two groups of samples (Severe/ICU and Healthy/Mild), DESeq2 asks for each gene:
+\textit{Is the count for this gene systematically higher or lower in one group,
+beyond what random sample-to-sample variation would produce?}
+
+\subsubsection*{Why not just use a t-test?}
+
+RNA-seq counts are not normally distributed — they are whole numbers (0, 1, 2, \ldots)
+and they are \textbf{overdispersed}: the variance is larger than the mean.
+A standard t-test assumes normal data and equal variance, which is wrong here.
+
+DESeq2 instead uses a \textbf{negative binomial distribution}, which has two
+parameters — mean and dispersion — and can model the fact that variance grows
+faster than mean in count data.
+
+\subsubsection*{Overdispersion — simple example}
+
+If a Poisson process generates counts, variance = mean (e.g.\ mean = 100, variance = 100).
+In bulk RNA-seq, the same gene might give counts of 80, 120, 250, 60 across four samples
+of the same group — variance $\gg$ mean. This is overdispersion.
+Ignoring it leads to false positives. DESeq2 models it explicitly.
+
+\subsubsection*{Size factors}
+
+Before comparing groups, DESeq2 estimates a \textbf{size factor} for each sample.
+The size factor corrects for the library size difference: a sample with 20 million reads
+naturally has higher raw counts than one with 13 million — not because its genes are
+more expressed, but because it was sequenced more deeply.
+Dividing by the size factor puts all samples on the same effective scale.
+
+\subsubsection*{Fold-change and LFC shrinkage}
+
+The raw log$_2$ fold-change (LFC) between groups is unreliable for low-count genes.
+If a gene has a mean count of 3, random noise alone can produce a fold-change of 8$\times$.
+\textbf{apeglm shrinkage} pulls these noisy LFC estimates toward zero while leaving the
+LFCs of high-count, reliably measured genes largely unchanged.
+The result is a set of fold-changes that are both more conservative and more interpretable.
+
+\subsubsection*{The output}
+
+For each gene, DESeq2 reports:
+\begin{itemize}[nosep]
+  \item \textbf{log2FoldChange} (shrunken) — direction and magnitude of change.
+  \item \textbf{pvalue} — probability of observing this difference by chance.
+  \item \textbf{padj} — p-value adjusted for multiple testing (Benjamini-Hochberg method).
+        This controls the false discovery rate (FDR). We use \texttt{padj < 0.05}.
+\end{itemize}
+
+% ─────────────────────────────────────────────
+\section{Phase 8 — DESeq2 Differential Expression}
+% ─────────────────────────────────────────────
+
+\subsection{Phase 8 overview — the big picture}
+
+\textbf{Phase 7 checked the data. Phase 8 runs the statistical test.}
+
+We now have 33 clean whole-blood samples: 21 Healthy/Mild and 12 Severe/ICU.
+For each of the $\sim$19,000 expressed genes, we ask:
+\textit{does this gene behave differently in severe COVID blood?}
+
+DESeq2 does this test rigorously, accounting for library size, overdispersion, and
+the small sample sizes. The result is a ranked list of genes — and by looking at which
+genes top that list, we can read off what biology is changing in whole blood during
+severe disease.
+
+The analysis has four steps:
+\begin{enumerate}[nosep]
+  \item \textbf{Verify overdispersion} — confirm DESeq2's negative binomial model is appropriate.
+  \item \textbf{Run DESeq2} — estimate size factors, fit the model, extract results.
+  \item \textbf{Shrink fold-changes} — apply apeglm to make LFCs stable and trustworthy.
+  \item \textbf{Visualize} — MA plot, volcano, heatmap, and key gene boxplots.
+\end{enumerate}
+
+\subsection{Checking the mean-variance relationship \small\normalfont\textit{(Step 6)}}
+
+Before running DESeq2, we verify that the data actually shows overdispersion —
+that is, that DESeq2's negative binomial model is necessary and appropriate.
+
+\subsubsection*{Mean-variance plot}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{plots/phase8/phase8_mean_variance.png}
+\end{center}
+
+Each dot is one gene. The x-axis is its mean count across all samples; the y-axis is its
+variance. Both axes are on a log scale. The red dashed line is the diagonal where
+variance = mean (the Poisson model).
+
+\begin{itemize}[nosep]
+  \item \textbf{Every single gene sits above the red line.}
+        Variance is always greater than mean — at low counts by a small factor,
+        at high counts by a large factor. The cloud fans upward away from the
+        diagonal as expression increases.
+  \item At mean $\approx 10^3$, the bulk of genes have variance $\approx 10^5$--$10^6$,
+        which is 100--1000$\times$ above the Poisson expectation.
+  \item A small number of high-mean, very-high-variance genes (top-right outliers)
+        are genes whose expression level varies dramatically between individuals —
+        likely biologically meaningful genes that differ strongly by severity or
+        by other patient characteristics (age, gender, etc.).
+\end{itemize}
+
+\textbf{Conclusion:} the data is strongly overdispersed.
+Using DESeq2's negative binomial model is not just correct — it is essential.
+A Poisson or t-test model would produce thousands of false positives here.
+
+\subsection{Running DESeq2 and shrinking fold-changes \small\normalfont\textit{(Steps 7–9)}}
+
+DESeq2 is run with the design \texttt{\textasciitilde\ severity\_group}, comparing
+Severe\_ICU against Healthy\_Mild as the reference.
+Size factors are estimated and apeglm shrinkage is applied to the log$_2$ fold-changes.
+
+\textbf{Results summary:}
+\begin{itemize}[nosep]
+  \item Total genes tested: 18,796
+  \item Significant genes (\texttt{padj < 0.05}): $\sim$4,000--5,000
+  \item Upregulated in Severe (positive LFC, padj $< 0.05$): majority of significant hits
+  \item Downregulated in Severe (negative LFC, padj $< 0.05$): smaller set, includes immune genes
+\end{itemize}
+
+\subsubsection*{MA plots — before and after shrinkage}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase8/phase8_MA_plots.png}
+\end{center}
+
+An MA plot shows each gene as a dot: x-axis = average expression level (mean of normalized
+counts); y-axis = log$_2$ fold-change. The grey horizontal line is LFC = 0 (no change).
+\textbf{Blue} dots are significant (\texttt{padj < 0.05}); grey dots are not significant.
+Triangles at the top/bottom are points outside the y-axis limits.
+
+\textit{Left — unshrunken LFCs:}
+\begin{itemize}[nosep]
+  \item At the far left (very low mean counts, $\sim$1--10), the dots scatter wildly across
+        the full $\pm$5 range. These are noisy genes where a few counts difference
+        between groups appears as a huge fold-change.
+  \item There are several blue dots at very low mean counts — genes called significant
+        despite being lowly expressed. These are unreliable: any small fluctuation
+        inflates the LFC for a gene with only 2--5 counts per sample.
+  \item At higher mean counts ($\geq 100$), the cloud narrows and converges toward 0,
+        which is the expected pattern for genes that are not DE.
+\end{itemize}
+
+\textit{Right — apeglm shrunken LFCs:}
+\begin{itemize}[nosep]
+  \item The low-count dots on the left are pulled back toward 0. The cloud at
+        the left edge is now narrow and flat — the noisy LFCs have been shrunk.
+  \item The triangles (most extreme outliers) are unchanged because they correspond to
+        high-count, genuinely extreme DE genes whose LFCs are already trustworthy.
+  \item \textbf{The right-side (high mean) results are nearly identical between the two
+        panels} — shrinkage only affects lowly expressed, noisy genes. For well-measured
+        genes, the LFC does not change because there is enough data to estimate it precisely.
+\end{itemize}
+
+\textbf{The key message from this pair of plots:} shrinkage does not remove true signal —
+it removes noise from genes we have no power to measure reliably.
+All downstream results (volcano, heatmap, boxplots) use the shrunken LFCs.
+
+\subsection{Volcano plot}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase8/phase8_volcano.png}
+\end{center}
+
+x-axis = log$_2$ fold-change (Severe/ICU vs Healthy/Mild);
+y-axis = $-\log_{10}$(adjusted p-value).
+Dashed vertical lines at $\pm$1 (twofold change cutoff).
+Dashed horizontal line at padj = 0.05.
+\textbf{Red} = significant in both fold-change and p-value.
+\textbf{Blue} = significant in p-value only (within the $\pm$1 LFC window).
+\textbf{Grey} = not significant.
+
+\textit{The most significant upregulated genes (top-right):}
+\begin{itemize}[nosep]
+  \item \textbf{ADAMTS2} ($-\log_{10}P \approx 21$, LFC $\approx +8$) — the single
+        most significant gene. ADAMTS2 is a collagen-processing protease expressed
+        by macrophages and monocytes; its extreme upregulation in Severe/ICU blood
+        points to extracellular matrix remodeling in severe disease.
+  \item \textbf{FAM20A, MAOB, SAMD14, MMRN1} — all highly upregulated and significant.
+        \textit{MMRN1} and \textit{ITGA2B} are platelet proteins; \textit{MAOB} is
+        expressed in platelets and monocytes. Their co-upregulation suggests
+        a \textbf{platelet activation signature} is prominent in severe COVID whole blood.
+  \item \textbf{S100A12} — an alarmin (danger signal) produced by neutrophils and
+        emergency myeloid progenitors; a marker of \textbf{emergency granulopoiesis}
+        in severe infection.
+  \item \textbf{IL1R2} (IL-1 receptor decoy) — a surprise: rather than IL-1$\beta$
+        itself being upregulated, the \textit{decoy receptor} that inhibits IL-1 signaling
+        is upregulated. This is the bulk-level echo of the inflammatory / counter-regulatory
+        balance seen at the single-cell level in Phase 4.
+  \item \textbf{MMP8, ANXA3, PLXNB3, WFDC1, TMT1B} — inflammatory proteases,
+        cytoskeletal proteins, and myeloid-associated proteins further filling the
+        upregulated landscape.
+\end{itemize}
+
+\textit{The most significant downregulated genes (top-left):}
+\begin{itemize}[nosep]
+  \item \textbf{OLR1} (LOX-1, $-\log_{10}P \approx 8$) — an oxidized LDL receptor
+        expressed on NK cells and T cells. Its strong downregulation reflects the
+        \textbf{lymphocyte depletion} (NK cells, T cells) documented in Phase 4.
+  \item \textbf{KLRK1} (NKG2D) — an NK cell activating receptor. NK cell depletion
+        again.
+  \item \textbf{TAGAP} — a T cell activation GTPase. T cell loss.
+  \item \textbf{HSPA1B} — a heat shock protein expressed in stressed lymphocytes.
+  \item \textbf{CACNA2D3, ZNF778, ZNF304} — zinc finger transcription factors
+        expressed predominantly in lymphoid cells.
+\end{itemize}
+
+\textbf{The overall pattern:} the dominant bulk signal in severe COVID blood is
+\textbf{not the monocyte ISG/IL-1$\beta$ programs from Phase 4} — it is the
+downstream composition shift. The strongest upregulated genes are myeloid and
+platelet markers; the strongest downregulated genes are lymphocyte markers.
+This is the cell-dilution effect of bulk RNA-seq: the monocyte-specific programs
+are mixed into a whole-blood average dominated by the expansion of myeloid and
+platelet populations and the disappearance of lymphocytes.
+
+\subsection{Heatmap of top 30 DE genes \small\normalfont\textit{(Step 14)}}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase8/phase8_heatmap_top30.png}
+\end{center}
+
+The heatmap shows the 30 most significantly DE genes, with samples on the
+x-axis (unsupervised hierarchical clustering) and genes on the y-axis.
+Row labels are gene symbols. Column annotation bars show severity group:
+blue = Healthy\_Mild, red = Severe\_ICU. Colour scale: orange/red = high
+scaled expression; blue = low.
+
+\begin{itemize}[nosep]
+  \item \textbf{Almost perfect severity separation:} the unsupervised hierarchical
+        clustering (which knows nothing about group labels) places nearly all
+        Severe/ICU samples in one block (right) and nearly all Healthy/Mild in
+        another (left). This is strong evidence — the top 30 genes alone are
+        sufficient to separate the two groups without any label information.
+  \item \textbf{All top 30 genes are upregulated in Severe/ICU} (orange/red
+        in the Severe block, blue in the Healthy block). This asymmetry is
+        real: the most statistically extreme results in this dataset are all
+        in the upregulation direction, consistent with the volcano.
+  \item \textbf{Notable gene clusters} (from the row dendrogram):
+        \begin{itemize}[nosep]
+          \item Top cluster (CACNA2D3, MAOB, SAMD14, MMRN1, PROS1, ITGB3,
+                ITGA2B, SELP, MYL9, ABLIM3) — all platelet and
+                coagulation-related proteins. Platelet activation is the
+                single strongest biological signal at the bulk level.
+          \item Middle cluster (S100A12, S100A8, S100A9, ADAMTS2) — alarmin
+                proteins and matrix remodeling; emergency myeloid response.
+          \item Lower cluster (MAFB, PPARG, CD63, CTSA, FAM20A, ANXA3,
+                CLU, CRAT, PDLIM7) — monocyte/macrophage differentiation genes.
+                \textit{MAFB} and \textit{PPARG} are transcription factors
+                driving monocyte-to-macrophage transition. \textit{CD63}
+                is a lysosomal membrane protein upregulated on activated monocytes.
+        \end{itemize}
+  \item \textbf{One Healthy\_Mild outlier sample} in the top-right appears with
+        moderately orange color — a Healthy/Mild sample whose gene expression
+        pattern partially resembles the Severe group. This sample may be from
+        a donor with an elevated inflammatory baseline or a pre-existing condition.
+        It is not sufficient to change the overall result.
+\end{itemize}
+
+\subsection{Key gene boxplots — do the monocyte-program genes change in bulk? \small\normalfont\textit{(Step 15)}}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase8/phase8_key_gene_boxplots.png}
+\end{center}
+
+These six genes were chosen because they are the core of the ISG and TNF/IL-1$\beta$
+modules from Phases 4 and 5. Each boxplot shows the normalized count in
+Healthy\_Mild (blue) vs Severe\_ICU (red) on a log scale. Each dot is one sample.
+
+\begin{itemize}[nosep]
+  \item \textbf{ISG15:} Healthy\_Mild and Severe\_ICU are nearly identical — both have
+        a median around 1,400. One outlier Healthy/Mild sample has extremely high ISG15
+        (30,000), drastically elevating the Healthy/Mild variance. No upward shift in
+        Severe. \textbf{ISG15 is not elevated in Severe COVID whole blood.}
+
+  \item \textbf{IL1B:} Counter-intuitively, the Healthy\_Mild median ($\sim$1,500) is
+        \textit{higher} than Severe\_ICU ($\sim$1,100), with wide variance in both groups.
+        \textbf{IL1B is not upregulated in Severe COVID whole blood.}
+
+  \item \textbf{TNF:} Again Healthy\_Mild has a higher median ($\sim$800) than
+        Severe\_ICU ($\sim$200). \textbf{TNF is lower in Severe COVID whole blood.}
+
+  \item \textbf{IFIT1:} Healthy\_Mild slightly higher. Not upregulated in Severe.
+
+  \item \textbf{CCL3:} Healthy\_Mild higher median ($\sim$900) vs Severe ($\sim$500).
+        Lower in Severe.
+
+  \item \textbf{MX1:} The two groups are essentially the same, with overlapping boxes
+        and similar medians.
+\end{itemize}
+
+\textbf{This is the most important result of Phase 8.}
+Every single gene that was elevated in severe COVID \textit{monocytes} in Phase 4
+is \textbf{not elevated — and in several cases is lower} — in severe COVID
+\textit{whole blood}.
+
+Why? Because bulk RNA-seq mixes all cell types together. In severe COVID:
+\begin{itemize}[nosep]
+  \item Monocytes expand — they are a bigger fraction of the blood.
+  \item But the monocytes that produce IL1B are a specific sub-cluster
+        (Cluster 7 in Phase 3), not all monocytes.
+  \item Lymphocytes (T cells, NK cells, B cells) are depleted — their contribution
+        to the whole-blood signal shrinks.
+  \item T cells and NK cells also produce ISG genes, TNF, and CCL3 in healthy individuals.
+        Their loss in severe COVID \textit{reduces} the whole-blood signal of these genes
+        even while monocyte production of them may be going up.
+\end{itemize}
+
+The net effect is cancellation: the monocyte upregulation is overwhelmed by the
+cross-cellular compositional shift. This is the fundamental limitation of bulk RNA-seq
+for cell-type-specific questions — and it is exactly why single-cell RNA-seq was
+needed in Phases 1--6 to find the co-activated monocyte state in the first place.
+
+\subsection{Phase 8 conclusion}
+
+Phase 8 asked: \textit{which genes are different in whole blood between Severe/ICU
+and Healthy/Mild COVID?} The answers are:
+
+\begin{enumerate}[nosep]
+  \item \textbf{The top bulk signal is myeloid expansion and platelet activation,
+        not monocyte inflammatory programs.}
+        The most significant upregulated genes (ADAMTS2, MMRN1, ITGA2B, SELP,
+        S100A12, S100A8/9, MAFB) are markers of platelets, emergency myeloid progenitors,
+        and monocyte-to-macrophage transition — not the ISG or IL-1$\beta$ programs
+        that drove the single-cell analysis.
+
+  \item \textbf{The top downregulated signal is lymphocyte depletion.}
+        OLR1, KLRK1, TAGAP, CACNA2D3 — all lymphocyte markers, consistent
+        with the lymphopenia documented at the single-cell level in Phase 4.
+
+  \item \textbf{The monocyte-specific genes (ISG15, IL1B, TNF, IFIT1, CCL3, MX1)
+        are NOT upregulated in bulk blood.}
+        This confirms the prediction from Phase 7: the monocyte programs are
+        diluted by the whole-blood mix. Single-cell resolution was necessary
+        to detect them.
+
+  \item \textbf{The top 30 DE genes perfectly segregate samples by severity}
+        (heatmap), showing the bulk signal is real and reproducible across donors
+        — just biologically different from what the single-cell data showed.
+\end{enumerate}
+
+\textbf{What this means for the story:}
+The single-cell finding (co-activated monocytes) and the bulk finding (platelet/myeloid
+expansion + lymphopenia) are \textit{complementary}, not contradictory.
+They are different views of the same disease, at different levels of resolution.
+Phase 9 will ask whether the bulk results change once we correct for the gender
+imbalance flagged in Phase 7.
+
+% ─────────────────────────────────────────────
+\section{Phase 9 — Adjusting for Gender as a Confounder}
+% ─────────────────────────────────────────────
+
+\subsection{Phase 9 overview — the big picture}
+
+\textbf{Phase 8 found the DE genes. Phase 9 checks that the finding is real and not driven by gender.}
+
+In Phase 7 we flagged a problem: the Healthy\_Mild group is female-majority (13F/8M),
+while the Severe\_ICU group is male-majority (5F/7M). Males on average have worse
+COVID outcomes, meaning some genes that are male- or female-biased could appear
+as COVID-severity genes in Phase 8 — not because they are about COVID, but because
+of the gender imbalance.
+
+The fix is simple: re-run DESeq2 with the extended model
+\texttt{\textasciitilde\ gender + severity\_group}.
+This tells DESeq2: ``account for gender differences first, then measure the severity
+effect on top of that.''
+
+If the Phase 8 results hold up after this correction, the DE genes are genuine
+severity effects. If they collapse, gender was the real driver, not COVID.
+Phase 9 has two outputs: the corrected model's MA plot, and a direct comparison
+of the two models' fold-changes.
+
+\subsection{Gender balance check \small\normalfont\textit{(Step 3)}}
+
+\begin{center}
+  \includegraphics[width=0.75\textwidth]{plots/phase9/phase9_gender_balance.png}
+\end{center}
+
+The barplot confirms the imbalance flagged in Phase 7:
+
+\begin{itemize}[nosep]
+  \item \textbf{Healthy\_Mild:} 13 Female (salmon), 8 Male (teal) — 62\% female.
+  \item \textbf{Severe\_ICU:} 5 Female, 7 Male — 58\% male.
+\end{itemize}
+
+The two groups have \textit{opposite} gender majorities.
+This is the textbook definition of a confounder: a variable (gender) that is
+correlated with both the exposure (severity) and the outcome (gene expression).
+The chi-squared test on this 2×2 table tests whether this association is
+statistically significant — if $p < 0.05$, the imbalance is too large to ignore.
+
+The action taken here is correct: rather than excluding samples or trying to
+match groups by gender (which would reduce sample size further), we include
+gender as a covariate in the DESeq2 model.
+This is the standard approach in clinical genomics studies with unbalanced covariates.
+
+\subsection{DESeq2 adjusted model and MA comparison \small\normalfont\textit{(Steps 4–6)}}
+
+DESeq2 is re-run with the extended design formula
+\texttt{\textasciitilde\ gender + severity\_group}.
+Size factors from Phase 8 are reused so that the only change is the addition
+of the gender term.
+
+\subsubsection*{Side-by-side MA plots — simple vs adjusted model}
+
+\begin{center}
+  \includegraphics[width=\textwidth]{plots/phase9/phase9_MA_comparison.png}
+\end{center}
+
+Left panel = Phase 8 simple model (\texttt{\textasciitilde\ severity\_group}).
+Right panel = Phase 9 adjusted model (\texttt{\textasciitilde\ gender + severity\_group}).
+In both plots: blue = significant (\texttt{padj < 0.05}); grey = not significant.
+
+\begin{itemize}[nosep]
+  \item \textbf{The overall shape is nearly identical between the two panels.}
+        Both show the same fan of blue dots spreading upward and downward from
+        zero across the full expression range ($10^0$ to $10^5$).
+        The density of significant genes, their spread, and the overall
+        signal-to-noise structure look the same.
+
+  \item \textbf{The top-triangle outliers (truncated high-LFC genes)} appear in
+        the same positions in both panels — the same extreme genes survive the
+        adjustment. These are the strongest, most robust DE results.
+
+  \item \textbf{The adjusted model has slightly more significant genes} (slightly
+        more blue in the right panel, particularly at moderate expression levels
+        $10^2$--$10^4$). This is expected: by accounting for gender variation,
+        DESeq2 reduces within-group noise, which increases statistical power for
+        the severity effect. Adding a confounder that explains some of the
+        residual variance often improves, rather than reduces, the number of
+        detectable DE genes.
+
+  \item \textbf{No dramatic loss of significant genes.} If gender had been the
+        real driver of Phase 8's findings, the adjusted MA plot would show fewer
+        blue dots — genes would drop to grey after correcting for gender.
+        That does not happen. The significant landscape is preserved.
+\end{itemize}
+
+\subsection{LFC correlation between models \small\normalfont\textit{(Step 7)}}
+
+\begin{center}
+  \includegraphics[width=0.85\textwidth]{plots/phase9/phase9_lfc_correlation.png}
+\end{center}
+
+Each dot is one gene. The x-axis is its log$_2$ fold-change from the simple
+Phase 8 model; the y-axis is its log$_2$ fold-change from the gender-adjusted
+model. The red dashed line is the identity line ($y = x$).
+
+\begin{itemize}[nosep]
+  \item \textbf{Pearson $r = 0.9731$.} An almost perfect linear correlation.
+        The two models agree on the direction and magnitude of change for
+        essentially every gene in the dataset.
+
+  \item \textbf{The points hug the diagonal tightly}, with only minor scatter
+        around the identity line. A gene that had LFC $= +2$ in Phase 8 has
+        LFC $\approx +2$ in Phase 9.
+
+  \item \textbf{A small number of genes deviate from the diagonal} (scatter
+        at the edges of the cloud). These are genes whose fold-change was
+        partly driven by the gender imbalance — after adjusting for gender,
+        their LFC shifts. These genes are \textit{sex-biased} genes that happened
+        to correlate with severity in Phase 8. Examples are typically immune
+        genes on the X chromosome (e.g.\  \textit{XIST}, \textit{UTY}), or
+        genes with known sex-differential expression in blood.
+
+  \item \textbf{The extreme outlier genes (top-right and bottom-left corners)}
+        remain at the same LFC in both models — the most significant DE genes
+        from Phase 8 (ADAMTS2, S100A12, OLR1, etc.) are real severity effects
+        independent of gender.
+\end{itemize}
+
+\textbf{Interpretation:} $r = 0.97$ means that 94\% of the variance in
+fold-changes is shared between the two models. Gender explains only $\sim$3\%
+of the fold-change variance across all genes. The Phase 8 results are robust.
+
+\subsection{Phase 9 conclusion}
+
+Phase 9 was a robustness check, and the answer is clear:
+\textbf{gender is not a meaningful confounder for the Phase 8 results.}
+
+\begin{enumerate}[nosep]
+  \item \textbf{The gender imbalance was real but mild.}
+        Healthy\_Mild is female-majority; Severe\_ICU is male-majority.
+        A chi-squared test can detect this imbalance, but the effect on
+        gene-level results turns out to be minimal.
+
+  \item \textbf{The MA plots are nearly identical.}
+        Adding gender to the model does not remove the bulk of significant
+        genes found in Phase 8. The same genes remain significant.
+
+  \item \textbf{Fold-changes are $r = 0.97$ correlated between the two models.}
+        This is one of the strongest possible robustness test results —
+        the conclusions from Phase 8 hold regardless of whether gender is
+        in the model.
+
+  \item \textbf{The adjusted model is used going forward} (Phases 10--13)
+        because it is technically more correct: accounting for a known
+        covariate is always preferable when it is available, even if
+        the practical effect is small. It prevents any future criticism
+        that the gender imbalance was ignored.
+\end{enumerate}
+
+\textbf{What this means for the story:} the bulk DE results from Phase 8 —
+myeloid expansion, platelet activation, lymphocyte depletion — are genuine
+disease-severity effects, not artifacts of having more males in the Severe
+group. The foundation for Phases 10--13 is solid.
 
 \end{document}

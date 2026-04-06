@@ -1,0 +1,100 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Background}{1}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}The project question in simple words}{1}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}The research question — unpacked word by word}{1}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}Biology basics — cells, genes, and RNA}{2}{subsection.1.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.3.1}The cell and its instruction book}{2}{subsubsection.1.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.3.2}What scRNA-seq measures}{2}{subsubsection.1.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.3.3}What is a monocyte?}{2}{subsubsection.1.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.4}What is a 10X matrix?}{2}{subsection.1.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.4.1}The simple idea}{3}{subsubsection.1.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.4.2}The three input files}{3}{subsubsection.1.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.4.3}One-line summary}{3}{subsubsection.1.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.5}What is a Seurat object?}{3}{subsection.1.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.5.1}The simple idea}{3}{subsubsection.1.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.5.2}What is stored inside a Seurat object?}{4}{subsubsection.1.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.5.3}Why is this useful?}{4}{subsubsection.1.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.6}QC metrics — nFeature\_RNA, nCount\_RNA, percent.mt}{4}{subsection.1.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.6.1}nFeature\_RNA}{4}{subsubsection.1.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.6.2}nCount\_RNA}{4}{subsubsection.1.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.6.3}How they are related}{4}{subsubsection.1.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.6.4}percent.mt}{4}{subsubsection.1.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.6.5}Why all three are used together}{5}{subsubsection.1.6.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.7}Normalization, dimensionality reduction, and visualization — key concepts}{5}{subsection.1.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.7.1}Sequencing depth and why normalization is needed}{5}{subsubsection.1.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.7.2}Variable features}{5}{subsubsection.1.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.7.3}Scaling and regressing out}{6}{subsubsection.1.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.7.4}PCA — principal component analysis}{6}{subsubsection.1.7.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.7.5}Elbow plot — choosing the number of PCs}{6}{subsubsection.1.7.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {1.7.6}UMAP and t-SNE — 2D visualization of cells}{6}{subsubsection.1.7.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Phase 1 — QC and Preprocessing}{7}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Load data and inspect \small  \normalfont  \textit  {(Steps 3–4)}}{7}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Create Seurat object and compute QC metrics \small  \normalfont  \textit  {(Steps 5–8)}}{7}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Filter low-quality cells \small  \normalfont  \textit  {(Steps 9–12)}}{10}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Phase 1 conclusion}{11}{subsection.2.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Phase 2 — Normalization and Dimensionality Reduction}{12}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Phase 2 overview — the big picture}{12}{subsection.3.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Normalize and identify variable features \small  \normalfont  \textit  {(Step 4)}}{13}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}PCA and choosing the number of components \small  \normalfont  \textit  {(Steps 5–6)}}{13}{subsection.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}UMAP and t-SNE embeddings \small  \normalfont  \textit  {(Steps 7–9)}}{17}{subsection.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Phase 3 — Clustering and Cell-Type Annotation}{19}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Phase 3 overview — the big picture}{19}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Graph-based clustering \small  \normalfont  \textit  {(Steps 4–7)}}{19}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Cell-type annotation \small  \normalfont  \textit  {(Steps 8–9)}}{22}{subsection.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Find cluster-defining markers \small  \normalfont  \textit  {(Step 10)}}{29}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.5}Phase 3 conclusion}{31}{subsection.4.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.6}Module scoring — what it is and why we use it}{31}{subsection.4.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Phase 4 — CD14\textsuperscript  {+} Monocyte Deep-Dive}{32}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Phase 4 overview — the big picture}{32}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Add severity metadata and subset monocytes \small  \normalfont  \textit  {(Steps 3–4)}}{32}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Module scoring and co-activation analysis \small  \normalfont  \textit  {(Steps 5–9)}}{33}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Donor-level comparison \small  \normalfont  \textit  {(Steps 10–12)}}{36}{subsection.5.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.5}Differential expression and volcano plot \small  \normalfont  \textit  {(Steps 13–14)}}{37}{subsection.5.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.6}Phase 4 conclusion}{38}{subsection.5.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Phase 5 — Replication on GSE150861}{39}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Phase 5 overview — the big picture}{39}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Dataset and QC \small  \normalfont  \textit  {(Steps 2–4)}}{39}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Normalization, PCA, and choosing the number of PCs \small  \normalfont  \textit  {(Step 5–6)}}{40}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}UMAP and clustering \small  \normalfont  \textit  {(Step 6, continued)}}{41}{subsection.6.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Cell-type annotation \small  \normalfont  \textit  {(Step 7)}}{42}{subsection.6.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6}Cell-type composition over time \small  \normalfont  \textit  {(Step 11)}}{44}{subsection.6.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.7}Co-activation replication scatter \small  \normalfont  \textit  {(Step 10)}}{45}{subsection.6.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.8}Longitudinal dynamics and Tocilizumab effect \small  \normalfont  \textit  {(Steps 11–12)}}{46}{subsection.6.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.9}Phase 5 conclusion}{47}{subsection.6.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Phase 6 — scRNA-seq Visualization Summary}{48}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Phase 6 overview — the big picture}{48}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}The annotated UMAP}{48}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Cell-type composition by severity}{49}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}Where are the ISG and inflammatory genes expressed?}{50}{subsection.7.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.5}Module scores and co-activation}{52}{subsection.7.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.6}Differential expression volcano}{54}{subsection.7.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.7}Cluster marker heatmap}{55}{subsection.7.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.8}Replication in GSE150861}{56}{subsection.7.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.9}Summary panel}{57}{subsection.7.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.10}Phase 6 conclusion}{57}{subsection.7.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.11}What is bulk RNA-seq and how is it different from scRNA-seq?}{58}{subsection.7.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Phase 7 — Bulk RNA-seq Loading and EDA}{58}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Phase 7 overview — the big picture}{58}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Load data and define severity groups \small  \normalfont  \textit  {(Steps 2–6)}}{58}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Exploratory plots \small  \normalfont  \textit  {(Steps 7–12)}}{59}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}Gene filtering and matrix alignment \small  \normalfont  \textit  {(Steps 10–12)}}{61}{subsection.8.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.5}Phase 7 conclusion}{61}{subsection.8.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.6}DESeq2 — how bulk differential expression works}{61}{subsection.8.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Phase 8 — DESeq2 Differential Expression}{62}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Phase 8 overview — the big picture}{62}{subsection.9.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Checking the mean-variance relationship \small  \normalfont  \textit  {(Step 6)}}{63}{subsection.9.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Running DESeq2 and shrinking fold-changes \small  \normalfont  \textit  {(Steps 7–9)}}{63}{subsection.9.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.4}Volcano plot}{65}{subsection.9.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.5}Heatmap of top 30 DE genes \small  \normalfont  \textit  {(Step 14)}}{66}{subsection.9.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.6}Key gene boxplots — do the monocyte-program genes change in bulk? \small  \normalfont  \textit  {(Step 15)}}{67}{subsection.9.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.7}Phase 8 conclusion}{68}{subsection.9.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10}Phase 9 — Adjusting for Gender as a Confounder}{68}{section.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.1}Phase 9 overview — the big picture}{68}{subsection.10.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.2}Gender balance check \small  \normalfont  \textit  {(Step 3)}}{69}{subsection.10.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.3}DESeq2 adjusted model and MA comparison \small  \normalfont  \textit  {(Steps 4–6)}}{69}{subsection.10.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.4}LFC correlation between models \small  \normalfont  \textit  {(Step 7)}}{71}{subsection.10.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.5}Phase 9 conclusion}{72}{subsection.10.5}\protected@file@percent }
+\gdef \@abspage@last{72}
