@@ -37,7 +37,8 @@ knitr::opts_chunk$set(
   fig.height = 5
 )
 
-# Create plots output folder
+# Define and create plots output folder
+PLOTS_DIR <- "plots/phase1"
 dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
 ```
 
@@ -64,8 +65,7 @@ MAX_PERCENT_MT <- 20
 # Optional: minimum number of cells expressing a gene to keep the gene at object creation
 MIN_CELLS_PER_GENE <- 3
 
-# Folder where all Phase 1 plots will be saved
-PLOTS_DIR <- "plots/phase1"
+# (PLOTS_DIR already defined in setup chunk above)
 ```
 
 ---

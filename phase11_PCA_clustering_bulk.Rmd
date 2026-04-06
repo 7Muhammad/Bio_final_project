@@ -1,0 +1,549 @@
+---
+title: "Phase 11 - PCA and Clustering on Bulk RNA-seq Data"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Goal
+
+This document implements **Phase 11** — unsupervised analysis of the
+GSE152418 bulk RNA-seq dataset using VST-normalized counts. We perform:
+
+1. VST normalization
+2. Top-variable gene selection
+3. PCA (2D scatter + variance-explained bar chart)
+4. Sample correlation matrix heatmap
+5. Euclidean distance matrix heatmap
+6. Hierarchical clustering (ward.D2)
+7. K-means clustering + elbow method
+8. Validation of clusters vs known severity groups
+
+All plots are saved to `plots/phase11/`.
+
+---
+
+## 1. Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(DESeq2)
+library(pheatmap)
+library(RColorBrewer)
+library(factoextra)
+library(patchwork)
+
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 10,
+  fig.height = 7
+)
+
+dir.create("plots/phase11", showWarnings = FALSE, recursive = TRUE)
+```
+
+---
+
+## 2. Load data
+
+```{r load-data}
+dds      <- readRDS("Data/phase8_dds.rds")
+metadata <- readRDS("Data/phase7_bulk_metadata.rds")
+
+cat("DESeqDataSet:", nrow(dds), "genes x", ncol(dds), "samples\n")
+cat("\nSeverity groups:\n")
+print(table(metadata$severity_group))
+
+if ("gender" %in% colnames(metadata)) {
+  cat("\nGender distribution:\n")
+  print(table(metadata$gender))
+}
+```
+
+---
+
+## 3. VST normalization
+
+Variance stabilizing transformation (VST) produces approximately
+homoscedastic counts suitable for PCA and distance-based clustering.
+We set `blind = TRUE` here so the transformation is not informed by
+the experimental design (appropriate for exploratory/unsupervised analysis).
+
+```{r vst}
+vsd <- vst(dds, blind = TRUE)
+normcounts <- assay(vsd)
+
+cat("VST matrix dimensions:", nrow(normcounts), "genes x", ncol(normcounts), "samples\n")
+cat("Value range: [", round(min(normcounts), 2), ",",
+    round(max(normcounts), 2), "]\n")
+```
+
+---
+
+## 4. Select top variable genes
+
+```{r top-var-genes}
+var_per_gene <- apply(normcounts, 1, var)
+
+n_top_genes <- 1000
+top_var_genes <- names(sort(var_per_gene, decreasing = TRUE))[1:n_top_genes]
+
+normcounts_top <- normcounts[top_var_genes, ]
+
+cat("Using top", n_top_genes, "most variable genes for unsupervised analysis.\n")
+cat("Variance range of selected genes: [",
+    round(min(var_per_gene[top_var_genes]), 3), ",",
+    round(max(var_per_gene[top_var_genes]), 3), "]\n")
+
+frac_var <- sum(var_per_gene[top_var_genes]) / sum(var_per_gene)
+cat("Variance captured by top", n_top_genes, "genes:",
+    round(100 * frac_var, 1), "%\n")
+```
+
+---
+
+## 5. PCA
+
+### 5a. Run PCA
+
+```{r run-pca}
+pca_res <- prcomp(t(normcounts_top), scale. = TRUE)
+
+percent_var <- round(100 * pca_res$sdev^2 / sum(pca_res$sdev^2), 2)
+
+cat("Variance explained by top 10 PCs:\n")
+for (i in 1:10) {
+  cat(sprintf("  PC%d: %.2f%%\n", i, percent_var[i]))
+}
+cat("  Total (PC1-10):", round(sum(percent_var[1:10]), 1), "%\n")
+```
+
+### 5b. Variance-explained bar chart
+
+```{r pca-scree, fig.width=9, fig.height=5}
+scree_df <- data.frame(
+  PC      = factor(paste0("PC", 1:20), levels = paste0("PC", 1:20)),
+  pct_var = percent_var[1:20],
+  cumvar  = cumsum(percent_var[1:20])
+)
+
+p_scree <- ggplot(scree_df, aes(x = PC, y = pct_var)) +
+  geom_col(fill = "steelblue", alpha = 0.8) +
+  geom_line(aes(y = cumvar, group = 1), color = "firebrick",
+            linewidth = 0.8, linetype = "dashed") +
+  geom_point(aes(y = cumvar), color = "firebrick", size = 2) +
+  scale_y_continuous(
+    name     = "Variance explained (%)",
+    sec.axis = sec_axis(~ ., name = "Cumulative variance (%)")
+  ) +
+  labs(title   = "PCA - Variance explained per PC",
+       subtitle = "Bars: individual; red dashed: cumulative",
+       x = "Principal component") +
+  theme_classic(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+print(p_scree)
+ggsave("plots/phase11/phase11_PCA_scree.png",
+       p_scree, width = 9, height = 5, dpi = 300)
+```
+
+### 5c. 2D PCA plot coloured by severity
+
+```{r pca-plot-severity, fig.width=9, fig.height=7}
+pca_df <- data.frame(
+  PC1      = pca_res$x[, 1],
+  PC2      = pca_res$x[, 2],
+  PC3      = pca_res$x[, 3],
+  sample   = rownames(pca_res$x),
+  severity = metadata$severity_group
+)
+
+if ("gender" %in% colnames(metadata)) {
+  pca_df$gender <- metadata$gender
+}
+
+p_pca_sev <- ggplot(pca_df,
+                    aes(x = PC1, y = PC2, color = severity, label = sample)) +
+  geom_point(size = 4, alpha = 0.9) +
+  geom_text(size = 2.5, vjust = -0.8, hjust = 0.5, color = "black") +
+  scale_color_manual(values = c("Healthy_Mild" = "steelblue",
+                                 "Severe_ICU"   = "firebrick")) +
+  labs(
+    title    = "PCA - Bulk RNA-seq (GSE152418)",
+    subtitle = paste0("PC1: ", percent_var[1], "% | PC2: ", percent_var[2], "%"),
+    x        = paste0("PC1 (", percent_var[1], "%)"),
+    y        = paste0("PC2 (", percent_var[2], "%)"),
+    color    = "Severity"
+  ) +
+  theme_classic(base_size = 13)
+
+print(p_pca_sev)
+ggsave("plots/phase11/phase11_PCA_severity.png",
+       p_pca_sev, width = 9, height = 7, dpi = 300)
+```
+
+### 5d. 2D PCA plot coloured by severity, shaped by gender
+
+```{r pca-plot-gender, fig.width=9, fig.height=7}
+if ("gender" %in% colnames(pca_df)) {
+  p_pca_gen <- ggplot(pca_df,
+                      aes(x = PC1, y = PC2,
+                          color = severity, shape = gender, label = sample)) +
+    geom_point(size = 4, alpha = 0.9) +
+    geom_text(size = 2.5, vjust = -0.8, hjust = 0.5, color = "black") +
+    scale_color_manual(values = c("Healthy_Mild" = "steelblue",
+                                   "Severe_ICU"   = "firebrick")) +
+    labs(
+      title    = "PCA - coloured by severity, shaped by gender",
+      subtitle = paste0("PC1: ", percent_var[1], "% | PC2: ", percent_var[2], "%"),
+      x        = paste0("PC1 (", percent_var[1], "%)"),
+      y        = paste0("PC2 (", percent_var[2], "%)"),
+      color    = "Severity",
+      shape    = "Gender"
+    ) +
+    theme_classic(base_size = 13)
+
+  print(p_pca_gen)
+  ggsave("plots/phase11/phase11_PCA_severity_gender.png",
+         p_pca_gen, width = 9, height = 7, dpi = 300)
+} else {
+  cat("Gender metadata not available - skipping gender-shaped PCA plot.\n")
+}
+```
+
+### 5e. PC1 vs PC3
+
+```{r pca-pc1-pc3, fig.width=9, fig.height=7}
+p_pca_pc13 <- ggplot(pca_df,
+                     aes(x = PC1, y = PC3, color = severity, label = sample)) +
+  geom_point(size = 4, alpha = 0.9) +
+  geom_text(size = 2.5, vjust = -0.8, hjust = 0.5, color = "black") +
+  scale_color_manual(values = c("Healthy_Mild" = "steelblue",
+                                 "Severe_ICU"   = "firebrick")) +
+  labs(
+    title    = "PCA - PC1 vs PC3",
+    x        = paste0("PC1 (", percent_var[1], "%)"),
+    y        = paste0("PC3 (", percent_var[3], "%)"),
+    color    = "Severity"
+  ) +
+  theme_classic(base_size = 13)
+
+print(p_pca_pc13)
+ggsave("plots/phase11/phase11_PCA_PC1_PC3.png",
+       p_pca_pc13, width = 9, height = 7, dpi = 300)
+```
+
+---
+
+## 6. Sample correlation matrix heatmap
+
+```{r correlation-heatmap, fig.width=10, fig.height=9}
+cor_mat <- cor(normcounts_top)
+
+anno_col <- data.frame(
+  Severity = metadata$severity_group,
+  row.names = colnames(cor_mat)
+)
+
+if ("gender" %in% colnames(metadata)) {
+  anno_col$Gender <- metadata$gender
+}
+
+anno_colors <- list(
+  Severity = c("Healthy_Mild" = "steelblue", "Severe_ICU" = "firebrick")
+)
+
+if ("Gender" %in% colnames(anno_col)) {
+  genders <- unique(na.omit(anno_col$Gender))
+  pal_g <- setNames(
+    RColorBrewer::brewer.pal(max(3, length(genders)), "Set1")[seq_along(genders)],
+    genders
+  )
+  anno_colors$Gender <- pal_g
+}
+
+p_cor <- pheatmap(
+  cor_mat,
+  annotation_col    = anno_col,
+  annotation_row    = anno_col,
+  annotation_colors = anno_colors,
+  color             = colorRampPalette(rev(brewer.pal(11, "RdBu")))(100),
+  breaks            = seq(0.85, 1, length.out = 101),
+  show_colnames     = FALSE,
+  show_rownames     = FALSE,
+  clustering_method = "ward.D2",
+  main = "Sample-to-sample Pearson correlation (top 1,000 variable genes)"
+)
+
+ggsave("plots/phase11/phase11_correlation_matrix.png",
+       p_cor, width = 10, height = 9, dpi = 300)
+```
+
+---
+
+## 7. Euclidean distance matrix heatmap
+
+```{r distance-heatmap, fig.width=10, fig.height=9}
+dist_mat   <- dist(t(normcounts_top), method = "euclidean")
+dist_mat2  <- as.matrix(dist_mat)
+
+p_dist <- pheatmap(
+  dist_mat2,
+  annotation_col    = anno_col,
+  annotation_row    = anno_col,
+  annotation_colors = anno_colors,
+  color             = colorRampPalette(brewer.pal(9, "Blues"))(100),
+  show_colnames     = FALSE,
+  show_rownames     = FALSE,
+  clustering_method = "ward.D2",
+  main = "Sample-to-sample Euclidean distances (top 1,000 variable genes)"
+)
+
+ggsave("plots/phase11/phase11_distance_matrix.png",
+       p_dist, width = 10, height = 9, dpi = 300)
+```
+
+---
+
+## 8. Hierarchical clustering
+
+```{r hierarchical-clustering, fig.width=12, fig.height=6}
+hc <- hclust(dist_mat, method = "ward.D2")
+
+png("plots/phase11/phase11_hierarchical_clustering.png",
+    width = 12, height = 6, units = "in", res = 300)
+plot(hc, hang = -1,
+     main = "Hierarchical clustering - ward.D2 (top 1,000 variable genes)",
+     sub  = "",
+     xlab = "Samples",
+     ylab = "Euclidean distance",
+     cex  = 0.85)
+rect.hclust(hc, k = 2, border = c("steelblue", "firebrick"))
+dev.off()
+
+plot(hc, hang = -1,
+     main = "Hierarchical clustering - ward.D2",
+     sub  = "", xlab = "Samples", ylab = "Euclidean distance", cex = 0.85)
+rect.hclust(hc, k = 2, border = c("steelblue", "firebrick"))
+```
+
+### 8a. Cluster correspondence with severity
+
+```{r hclust-vs-severity}
+hc_clusters <- cutree(hc, k = 2)
+
+cat("Hierarchical clustering k=2 vs severity group:\n")
+hc_tab <- table(
+  HC_cluster = hc_clusters,
+  Severity   = metadata$severity_group[match(names(hc_clusters),
+                                              rownames(metadata))]
+)
+print(hc_tab)
+
+cluster_purity <- function(tab) apply(tab, 1, max) / rowSums(tab)
+purities <- cluster_purity(hc_tab)
+cat("\nCluster purity:\n")
+for (i in seq_along(purities)) {
+  cat(sprintf("  Cluster %d: %.1f%%\n", i, purities[i] * 100))
+}
+```
+
+---
+
+## 9. K-means clustering and elbow method
+
+### 9a. Elbow plot (WSS)
+
+```{r kmeans-elbow, fig.width=9, fig.height=5}
+set.seed(42)
+
+wss_values <- sapply(1:8, function(k) {
+  km <- kmeans(t(normcounts_top), centers = k, nstart = 25, iter.max = 100)
+  km$tot.withinss
+})
+
+wss_df <- data.frame(k = 1:8, WSS = wss_values)
+
+p_elbow <- ggplot(wss_df, aes(x = k, y = WSS)) +
+  geom_line(linewidth = 1, color = "steelblue") +
+  geom_point(size = 3, color = "steelblue") +
+  geom_vline(xintercept = 2, linetype = "dashed",
+             color = "firebrick", linewidth = 0.8) +
+  annotate("text", x = 2.2, y = max(wss_values) * 0.95,
+           label = "k = 2 (elbow)", hjust = 0, color = "firebrick") +
+  scale_x_continuous(breaks = 1:8) +
+  labs(title   = "K-means elbow plot - within-cluster sum of squares",
+       subtitle = "Choose k at the elbow of the curve",
+       x = "Number of clusters (k)", y = "Total within-cluster SS") +
+  theme_classic(base_size = 13)
+
+print(p_elbow)
+ggsave("plots/phase11/phase11_kmeans_elbow.png",
+       p_elbow, width = 9, height = 5, dpi = 300)
+```
+
+### 9b. K-means with k = 2
+
+```{r kmeans-k2}
+set.seed(42)
+km_k2 <- kmeans(t(normcounts_top), centers = 2, nstart = 25, iter.max = 100)
+
+cat("K-means (k=2) cluster sizes:\n")
+print(table(km_k2$cluster))
+
+cat("\nK-means (k=2) vs severity group:\n")
+km_tab <- table(
+  KMeans_cluster = km_k2$cluster,
+  Severity       = metadata$severity_group[
+    match(names(km_k2$cluster), rownames(metadata))]
+)
+print(km_tab)
+
+km_purities <- cluster_purity(km_tab)
+cat("\nCluster purity:\n")
+for (i in seq_along(km_purities)) {
+  cat(sprintf("  Cluster %d: %.1f%%\n", i, km_purities[i] * 100))
+}
+```
+
+### 9c. K-means clusters overlaid on PCA
+
+```{r kmeans-pca-plot, fig.width=10, fig.height=7}
+pca_df$kmeans_cluster <- factor(km_k2$cluster[pca_df$sample])
+
+p_km_pca <- ggplot(pca_df,
+                   aes(x = PC1, y = PC2,
+                       color  = severity,
+                       shape  = kmeans_cluster,
+                       label  = sample)) +
+  geom_point(size = 4, alpha = 0.9) +
+  geom_text(size = 2.5, vjust = -0.8, hjust = 0.5, color = "black") +
+  scale_color_manual(values = c("Healthy_Mild" = "steelblue",
+                                 "Severe_ICU"   = "firebrick")) +
+  scale_shape_manual(values = c("1" = 16, "2" = 17)) +
+  labs(
+    title    = "PCA - K-means cluster (shape) vs known severity (colour)",
+    subtitle = paste0("PC1: ", percent_var[1], "% | PC2: ", percent_var[2], "%"),
+    x        = paste0("PC1 (", percent_var[1], "%)"),
+    y        = paste0("PC2 (", percent_var[2], "%)"),
+    color    = "Severity",
+    shape    = "K-means cluster"
+  ) +
+  theme_classic(base_size = 13)
+
+print(p_km_pca)
+ggsave("plots/phase11/phase11_PCA_kmeans_overlay.png",
+       p_km_pca, width = 10, height = 7, dpi = 300)
+```
+
+### 9d. factoextra cluster visualisation
+
+```{r fviz-cluster, fig.width=9, fig.height=7}
+p_fviz <- fviz_cluster(
+  km_k2,
+  data         = t(normcounts_top),
+  geom         = c("point", "text"),
+  ellipse.type = "convex",
+  ggtheme      = theme_classic(base_size = 13),
+  main         = "K-means k=2 - PCA-reduced space (factoextra)"
+)
+
+print(p_fviz)
+ggsave("plots/phase11/phase11_kmeans_fviz.png",
+       p_fviz, width = 9, height = 7, dpi = 300)
+```
+
+---
+
+## 10. Summary: cluster validation vs severity
+
+```{r cluster-summary}
+cat("============================================================\n")
+cat("CLUSTER VALIDATION SUMMARY\n")
+cat("============================================================\n\n")
+
+cat("Hierarchical clustering (k=2) vs severity:\n")
+print(hc_tab)
+
+cat("\nK-means (k=2) vs severity:\n")
+print(km_tab)
+
+cat("\n--- Agreement between methods ---\n")
+agree <- sum(hc_clusters == km_k2$cluster[names(hc_clusters)]) /
+         length(hc_clusters) * 100
+cat("Samples assigned to the same cluster by both methods:",
+    round(agree, 1), "%\n")
+
+cat("\n--- PCA separation ---\n")
+mean_pc1_healthy <- mean(pca_df$PC1[pca_df$severity == "Healthy_Mild"])
+mean_pc1_severe  <- mean(pca_df$PC1[pca_df$severity == "Severe_ICU"])
+cat("Mean PC1 - Healthy/Mild:", round(mean_pc1_healthy, 2), "\n")
+cat("Mean PC1 - Severe/ICU:  ", round(mean_pc1_severe,  2), "\n")
+cat("PC1 group separation:    ",
+    round(abs(mean_pc1_severe - mean_pc1_healthy), 2), "\n")
+```
+
+---
+
+## 11. Save Phase 11 outputs
+
+```{r save-outputs}
+cluster_df <- data.frame(
+  sample         = rownames(pca_res$x),
+  hclust_cluster = hc_clusters[rownames(pca_res$x)],
+  kmeans_cluster = km_k2$cluster[rownames(pca_res$x)],
+  severity       = metadata$severity_group[
+    match(rownames(pca_res$x), rownames(metadata))],
+  PC1            = pca_res$x[, 1],
+  PC2            = pca_res$x[, 2]
+)
+
+write.csv(cluster_df,
+          file      = "Data/phase11_cluster_assignments.csv",
+          row.names = FALSE)
+
+saveRDS(pca_res, file = "Data/phase11_pca_result.rds")
+
+cat("Saved:\n")
+cat("  Data/phase11_cluster_assignments.csv\n")
+cat("  Data/phase11_pca_result.rds\n")
+cat("\nPlots saved in: plots/phase11/\n")
+list.files("plots/phase11/")
+```
+
+---
+
+## Decision Checkpoint 6
+
+> **Predict-Before-You-Run 2 (from roadmap):**
+> "I expect PCA PC1 to separate Severe/ICU from Healthy/Mild, reflecting the
+> strong inflammatory transcriptomic signature of severe COVID-19."
+>
+> **Result:** (Fill in after rendering - did PC1 separate the groups?)
+>
+> **Number of variable genes:** 1,000
+> - Rationale: captures the majority of biological variance while excluding
+>   noise from low-variance housekeeping genes. Standard in bulk RNA-seq
+>   unsupervised analyses.
+> - Alternative: 500 or 2,000 genes could be tested; `fviz_nbclust()` was
+>   used to confirm k=2 is stable.
+>
+> **Clustering method - ward.D2:**
+> - Minimizes total within-cluster variance and produces compact, well-separated
+>   clusters aligned with known biology.
+> - Alternative: complete or average linkage; ward.D2 is generally preferred
+>   for gene-expression data.
+>
+> **K-means k=2:**
+> - Biologically motivated (two severity groups: Healthy/Mild and Severe/ICU)
+>   and supported by the elbow plot.
+
+---
+
+## Session info
+
+```{r session-info}
+sessionInfo()
+```

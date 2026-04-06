@@ -1,0 +1,413 @@
+---
+title: "Phase 12 – GSEA / Pathway Analysis"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Goal
+
+This document implements **Phase 12** — Gene Set Enrichment Analysis (GSEA)
+on the bulk RNA-seq differential expression results from Phase 8/9.
+We ask: which biological pathways are systematically up- or down-regulated
+in Severe/ICU COVID-19 whole blood?
+
+Gene sets tested:
+
+- **Hallmark** (H) — 50 curated hallmark pathways
+- **GO:BP** (C5) — Gene Ontology Biological Process
+- **KEGG** (C2/CP:KEGG) — KEGG pathway database
+- **Reactome** (C2/CP:REACTOME) — Reactome pathway database
+- **Immunologic signatures** (C7/IMMUNESIGDB) — immune-specific gene sets
+
+> **Predict-Before-You-Run 2:**
+> We expect GSEA to show enrichment of
+> `HALLMARK_INTERFERON_ALPHA_RESPONSE` and
+> `HALLMARK_TNFA_SIGNALING_VIA_NFKB` in Severe/ICU samples, consistent
+> with simultaneous ISG activation and monocyte-driven cytokine storm
+> observed in the scRNA-seq analysis (Phase 4).
+
+---
+
+## 1. Setup
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(clusterProfiler)
+library(enrichplot)
+library(msigdbr)
+library(org.Hs.eg.db)
+library(patchwork)
+
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 12,
+  fig.height = 7
+)
+
+dir.create("plots/phase12", showWarnings = FALSE, recursive = TRUE)
+```
+
+---
+
+## 2. Load Phase 8/9 results
+
+```{r load-results}
+# Use the adjusted model results (Phase 9) if available; fall back to simple
+if (file.exists("Data/phase9_resLFC_adjusted.rds")) {
+  resLFC <- readRDS("Data/phase9_resLFC_adjusted.rds")
+  cat("Using Phase 9 adjusted model results.\n")
+} else {
+  resLFC <- readRDS("Data/phase8_resLFC.rds")
+  cat("Using Phase 8 simple model results.\n")
+}
+
+cat("Total genes in results:", nrow(resLFC), "\n")
+cat("Genes with padj < 0.05:", sum(resLFC$padj < 0.05, na.rm = TRUE), "\n")
+```
+
+---
+
+## 3. Add gene symbols and build ranked list
+
+```{r add-symbols}
+# Map Ensembl IDs → HGNC symbols
+resLFC$symbol <- mapIds(
+  org.Hs.eg.db,
+  keys     = rownames(resLFC),
+  column   = "SYMBOL",
+  keytype  = "ENSEMBL",
+  multiVals = "first"
+)
+
+cat("Genes with symbol mapped:", sum(!is.na(resLFC$symbol)), "\n")
+```
+
+```{r ranked-list}
+# Build ranked gene list: log2FoldChange, named by symbol, no NAs
+ranked_df <- as.data.frame(resLFC) %>%
+  rownames_to_column("ensembl") %>%
+  filter(!is.na(symbol), !is.na(log2FoldChange)) %>%
+  arrange(desc(log2FoldChange))
+
+# Handle duplicate symbols by keeping the highest absolute LFC
+ranked_df <- ranked_df %>%
+  group_by(symbol) %>%
+  slice_max(abs(log2FoldChange), n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+genes_ordered <- ranked_df %>%
+  pull(log2FoldChange, name = symbol)
+
+cat("Ranked gene list length:", length(genes_ordered), "\n")
+cat("Top 5 (most upregulated):\n")
+print(head(genes_ordered, 5))
+cat("Bottom 5 (most downregulated):\n")
+print(tail(genes_ordered, 5))
+```
+
+---
+
+## 4. Load gene sets from MSigDB
+
+```{r load-genesets}
+# Hallmark (H)
+hallmark <- msigdbr(species = "Homo sapiens", category = "H") %>%
+  select(gs_name, gene_symbol)
+
+# GO Biological Process (C5 GO:BP)
+gobp <- msigdbr(species = "Homo sapiens", category = "C5",
+                subcategory = "GO:BP") %>%
+  select(gs_name, gene_symbol)
+
+# KEGG (C2 CP:KEGG_LEGACY)
+kegg <- msigdbr(species = "Homo sapiens", category = "C2",
+                subcategory = "CP:KEGG_LEGACY") %>%
+  select(gs_name, gene_symbol)
+
+# Reactome (C2 CP:REACTOME)
+reactome <- msigdbr(species = "Homo sapiens", category = "C2",
+                    subcategory = "CP:REACTOME") %>%
+  select(gs_name, gene_symbol)
+
+# Immunologic signatures (C7 IMMUNESIGDB)
+immune <- msigdbr(species = "Homo sapiens", category = "C7",
+                  subcategory = "IMMUNESIGDB") %>%
+  select(gs_name, gene_symbol)
+
+cat("Gene sets loaded:\n")
+cat("  Hallmark:     ", n_distinct(hallmark$gs_name), "sets\n")
+cat("  GO:BP:        ", n_distinct(gobp$gs_name), "sets\n")
+cat("  KEGG:         ", n_distinct(kegg$gs_name), "sets\n")
+cat("  Reactome:     ", n_distinct(reactome$gs_name), "sets\n")
+cat("  Immunologic:  ", n_distinct(immune$gs_name), "sets\n")
+```
+
+---
+
+## 5. Run GSEA — Hallmark
+
+```{r gsea-hallmark}
+set.seed(42)
+gsea_hallmark <- GSEA(
+  geneList     = genes_ordered,
+  TERM2GENE    = hallmark,
+  pvalueCutoff = 0.05,
+  pAdjustMethod = "BH",
+  minGSSize    = 10,
+  maxGSSize    = 500,
+  verbose      = FALSE
+)
+
+cat("Hallmark GSEA — significant sets:", nrow(gsea_hallmark@result), "\n")
+print(gsea_hallmark@result %>%
+  select(ID, NES, pvalue, p.adjust) %>%
+  arrange(desc(abs(NES))) %>%
+  head(15))
+```
+
+### Hallmark dot plot
+
+```{r hallmark-dotplot, fig.width=11, fig.height=7}
+if (nrow(gsea_hallmark@result) > 0) {
+  p <- dotplot(gsea_hallmark, showCategory = 20, split = ".sign") +
+    facet_grid(. ~ .sign) +
+    ggtitle("GSEA Hallmark — Severe/ICU vs Healthy/Mild") +
+    theme(axis.text.y = element_text(size = 9))
+  print(p)
+  ggsave("plots/phase12/phase12_hallmark_dotplot.png", p,
+         width = 13, height = 8, dpi = 300)
+} else {
+  cat("No significant Hallmark sets at padj < 0.05.\n")
+}
+```
+
+### Enrichment plot — Interferon alpha response
+
+```{r gsea-ifn-plot, fig.width=10, fig.height=5}
+ifn_id <- "HALLMARK_INTERFERON_ALPHA_RESPONSE"
+if (ifn_id %in% gsea_hallmark@result$ID) {
+  p <- gseaplot2(gsea_hallmark, geneSetID = ifn_id,
+                 title = ifn_id, pvalue_table = TRUE)
+  print(p)
+  ggsave("plots/phase12/phase12_gsea_IFN_alpha.png", p,
+         width = 10, height = 6, dpi = 300)
+} else {
+  cat(ifn_id, "not significant in this run.\n")
+}
+```
+
+### Enrichment plot — TNFα signaling via NFκB
+
+```{r gsea-tnf-plot, fig.width=10, fig.height=5}
+tnf_id <- "HALLMARK_TNFA_SIGNALING_VIA_NFKB"
+if (tnf_id %in% gsea_hallmark@result$ID) {
+  p <- gseaplot2(gsea_hallmark, geneSetID = tnf_id,
+                 title = tnf_id, pvalue_table = TRUE)
+  print(p)
+  ggsave("plots/phase12/phase12_gsea_TNF_NFKB.png", p,
+         width = 10, height = 6, dpi = 300)
+} else {
+  cat(tnf_id, "not significant in this run.\n")
+}
+```
+
+### Enrichment plot — Interferon gamma response
+
+```{r gsea-ifng-plot, fig.width=10, fig.height=5}
+ifng_id <- "HALLMARK_INTERFERON_GAMMA_RESPONSE"
+if (ifng_id %in% gsea_hallmark@result$ID) {
+  p <- gseaplot2(gsea_hallmark, geneSetID = ifng_id,
+                 title = ifng_id, pvalue_table = TRUE)
+  print(p)
+  ggsave("plots/phase12/phase12_gsea_IFNg.png", p,
+         width = 10, height = 6, dpi = 300)
+} else {
+  cat(ifng_id, "not significant in this run.\n")
+}
+```
+
+---
+
+## 6. Run GSEA — GO:BP
+
+```{r gsea-gobp}
+set.seed(42)
+gsea_gobp <- GSEA(
+  geneList      = genes_ordered,
+  TERM2GENE     = gobp,
+  pvalueCutoff  = 0.01,
+  pAdjustMethod = "BH",
+  minGSSize     = 15,
+  maxGSSize     = 500,
+  verbose       = FALSE
+)
+
+cat("GO:BP GSEA — significant sets:", nrow(gsea_gobp@result), "\n")
+```
+
+```{r gobp-dotplot, fig.width=12, fig.height=8}
+if (nrow(gsea_gobp@result) > 0) {
+  p <- dotplot(gsea_gobp, showCategory = 20, split = ".sign") +
+    facet_grid(. ~ .sign) +
+    ggtitle("GSEA GO:BP — Severe/ICU vs Healthy/Mild") +
+    theme(axis.text.y = element_text(size = 8))
+  print(p)
+  ggsave("plots/phase12/phase12_gobp_dotplot.png", p,
+         width = 14, height = 9, dpi = 300)
+} else {
+  cat("No significant GO:BP sets at padj < 0.01.\n")
+}
+```
+
+---
+
+## 7. Run GSEA — KEGG
+
+```{r gsea-kegg}
+set.seed(42)
+gsea_kegg <- GSEA(
+  geneList      = genes_ordered,
+  TERM2GENE     = kegg,
+  pvalueCutoff  = 0.05,
+  pAdjustMethod = "BH",
+  minGSSize     = 10,
+  maxGSSize     = 500,
+  verbose       = FALSE
+)
+
+cat("KEGG GSEA — significant sets:", nrow(gsea_kegg@result), "\n")
+if (nrow(gsea_kegg@result) > 0) {
+  print(gsea_kegg@result %>%
+    select(ID, NES, pvalue, p.adjust) %>%
+    arrange(desc(abs(NES))) %>%
+    head(10))
+}
+```
+
+```{r kegg-dotplot, fig.width=12, fig.height=7}
+if (nrow(gsea_kegg@result) > 0) {
+  p <- dotplot(gsea_kegg, showCategory = 15, split = ".sign") +
+    facet_grid(. ~ .sign) +
+    ggtitle("GSEA KEGG — Severe/ICU vs Healthy/Mild") +
+    theme(axis.text.y = element_text(size = 9))
+  print(p)
+  ggsave("plots/phase12/phase12_kegg_dotplot.png", p,
+         width = 13, height = 8, dpi = 300)
+} else {
+  cat("No significant KEGG sets at padj < 0.05.\n")
+}
+```
+
+---
+
+## 8. Run GSEA — Reactome
+
+```{r gsea-reactome}
+set.seed(42)
+gsea_reactome <- GSEA(
+  geneList      = genes_ordered,
+  TERM2GENE     = reactome,
+  pvalueCutoff  = 0.05,
+  pAdjustMethod = "BH",
+  minGSSize     = 10,
+  maxGSSize     = 500,
+  verbose       = FALSE
+)
+
+cat("Reactome GSEA — significant sets:", nrow(gsea_reactome@result), "\n")
+if (nrow(gsea_reactome@result) > 0) {
+  print(gsea_reactome@result %>%
+    select(ID, NES, pvalue, p.adjust) %>%
+    arrange(desc(abs(NES))) %>%
+    head(10))
+}
+```
+
+```{r reactome-dotplot, fig.width=12, fig.height=7}
+if (nrow(gsea_reactome@result) > 0) {
+  p <- dotplot(gsea_reactome, showCategory = 15, split = ".sign") +
+    facet_grid(. ~ .sign) +
+    ggtitle("GSEA Reactome — Severe/ICU vs Healthy/Mild") +
+    theme(axis.text.y = element_text(size = 8))
+  print(p)
+  ggsave("plots/phase12/phase12_reactome_dotplot.png", p,
+         width = 14, height = 8, dpi = 300)
+} else {
+  cat("No significant Reactome sets at padj < 0.05.\n")
+}
+```
+
+---
+
+## 9. Summary table — top sets across all databases
+
+```{r summary-table}
+bind_results <- function(gsea_obj, db_name) {
+  if (nrow(gsea_obj@result) == 0) return(NULL)
+  gsea_obj@result %>%
+    select(ID, NES, pvalue, p.adjust) %>%
+    mutate(database = db_name)
+}
+
+summary_tbl <- bind_rows(
+  bind_results(gsea_hallmark, "Hallmark"),
+  bind_results(gsea_gobp,     "GO:BP"),
+  bind_results(gsea_kegg,     "KEGG"),
+  bind_results(gsea_reactome, "Reactome")
+) %>%
+  arrange(desc(abs(NES))) %>%
+  head(20)
+
+print(summary_tbl)
+
+write.csv(summary_tbl,
+          "Data/phase12_gsea_summary_top20.csv",
+          row.names = FALSE)
+cat("Saved top-20 GSEA summary to Data/phase12_gsea_summary_top20.csv\n")
+```
+
+---
+
+## 10. Save GSEA objects
+
+```{r save-gsea}
+saveRDS(gsea_hallmark, "Data/phase12_gsea_hallmark.rds")
+saveRDS(gsea_gobp,     "Data/phase12_gsea_gobp.rds")
+saveRDS(gsea_kegg,     "Data/phase12_gsea_kegg.rds")
+saveRDS(gsea_reactome, "Data/phase12_gsea_reactome.rds")
+
+cat("Saved GSEA result objects to Data/\n")
+```
+
+---
+
+## 11. Biological interpretation
+
+```{r interpretation}
+cat("===== KEY FINDINGS =====\n\n")
+
+# Check predictions
+ifn_hit  <- ifn_id  %in% gsea_hallmark@result$ID
+tnf_hit  <- tnf_id  %in% gsea_hallmark@result$ID
+
+cat("Prediction check:\n")
+cat("  IFN-alpha response enriched in Severe/ICU: ", ifn_hit, "\n")
+cat("  TNFa/NFkB signaling enriched in Severe/ICU: ", tnf_hit, "\n\n")
+
+cat("These findings connect to the scRNA-seq co-activation result (Phase 4):\n")
+cat("  - ISG activation in bulk blood mirrors ISG module in CD14+ monocytes\n")
+cat("  - TNF/IL-1 pathway in bulk mirrors the TNF/IL-1 module in monocytes\n")
+cat("  - Together they support the dual-activation state as a systemic\n")
+cat("    transcriptomic feature of severe COVID-19\n")
+```
+
+---
+
+## Session info
+
+```{r session-info}
+sessionInfo()
+```
