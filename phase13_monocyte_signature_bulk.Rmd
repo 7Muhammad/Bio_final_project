@@ -169,7 +169,7 @@ scores_df <- as.data.frame(t(ssgsea_scores)) %>%
   rownames_to_column("sample") %>%
   left_join(
     metadata %>% rownames_to_column("sample") %>%
-      select(sample, severity_group),
+      dplyr::select(sample, severity_group),
     by = "sample"
   )
 
@@ -456,8 +456,8 @@ if (length(extra_cohorts) > 0 &&
     all(c("ISG_module", "TNF_IL1_module") %in% colnames(scores_gse152418))) {
   
   combined <- bind_rows(
-    scores_gse152418 %>% select(ISG_module, TNF_IL1_module, cohort, severity),
-    bind_rows(extra_cohorts) %>% select(ISG_module, TNF_IL1_module, cohort, severity)
+    scores_gse152418 %>% dplyr::select(ISG_module, TNF_IL1_module, cohort, severity),
+    bind_rows(extra_cohorts) %>% dplyr::select(ISG_module, TNF_IL1_module, cohort, severity)
   )
   
   p <- ggplot(combined, aes(x = ISG_module, y = TNF_IL1_module,

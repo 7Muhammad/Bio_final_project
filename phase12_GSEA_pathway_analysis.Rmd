@@ -96,7 +96,8 @@ ranked_df <- as.data.frame(resLFC) %>%
 ranked_df <- ranked_df %>%
   group_by(symbol) %>%
   slice_max(abs(log2FoldChange), n = 1, with_ties = FALSE) %>%
-  ungroup()
+  ungroup() %>%
+  arrange(desc(log2FoldChange))
 
 genes_ordered <- ranked_df %>%
   pull(log2FoldChange, name = symbol)
@@ -115,27 +116,27 @@ print(tail(genes_ordered, 5))
 ```{r load-genesets}
 # Hallmark (H)
 hallmark <- msigdbr(species = "Homo sapiens", category = "H") %>%
-  select(gs_name, gene_symbol)
+  dplyr::select(gs_name, gene_symbol)
 
 # GO Biological Process (C5 GO:BP)
 gobp <- msigdbr(species = "Homo sapiens", category = "C5",
                 subcategory = "GO:BP") %>%
-  select(gs_name, gene_symbol)
+  dplyr::select(gs_name, gene_symbol)
 
 # KEGG (C2 CP:KEGG_LEGACY)
 kegg <- msigdbr(species = "Homo sapiens", category = "C2",
                 subcategory = "CP:KEGG_LEGACY") %>%
-  select(gs_name, gene_symbol)
+  dplyr::select(gs_name, gene_symbol)
 
 # Reactome (C2 CP:REACTOME)
 reactome <- msigdbr(species = "Homo sapiens", category = "C2",
                     subcategory = "CP:REACTOME") %>%
-  select(gs_name, gene_symbol)
+  dplyr::select(gs_name, gene_symbol)
 
 # Immunologic signatures (C7 IMMUNESIGDB)
 immune <- msigdbr(species = "Homo sapiens", category = "C7",
                   subcategory = "IMMUNESIGDB") %>%
-  select(gs_name, gene_symbol)
+  dplyr::select(gs_name, gene_symbol)
 
 cat("Gene sets loaded:\n")
 cat("  Hallmark:     ", n_distinct(hallmark$gs_name), "sets\n")
@@ -163,7 +164,7 @@ gsea_hallmark <- GSEA(
 
 cat("Hallmark GSEA — significant sets:", nrow(gsea_hallmark@result), "\n")
 print(gsea_hallmark@result %>%
-  select(ID, NES, pvalue, p.adjust) %>%
+  dplyr::select(ID, NES, pvalue, p.adjust) %>%
   arrange(desc(abs(NES))) %>%
   head(15))
 ```
@@ -281,7 +282,7 @@ gsea_kegg <- GSEA(
 cat("KEGG GSEA — significant sets:", nrow(gsea_kegg@result), "\n")
 if (nrow(gsea_kegg@result) > 0) {
   print(gsea_kegg@result %>%
-    select(ID, NES, pvalue, p.adjust) %>%
+    dplyr::select(ID, NES, pvalue, p.adjust) %>%
     arrange(desc(abs(NES))) %>%
     head(10))
 }
@@ -320,7 +321,7 @@ gsea_reactome <- GSEA(
 cat("Reactome GSEA — significant sets:", nrow(gsea_reactome@result), "\n")
 if (nrow(gsea_reactome@result) > 0) {
   print(gsea_reactome@result %>%
-    select(ID, NES, pvalue, p.adjust) %>%
+    dplyr::select(ID, NES, pvalue, p.adjust) %>%
     arrange(desc(abs(NES))) %>%
     head(10))
 }
@@ -348,7 +349,7 @@ if (nrow(gsea_reactome@result) > 0) {
 bind_results <- function(gsea_obj, db_name) {
   if (nrow(gsea_obj@result) == 0) return(NULL)
   gsea_obj@result %>%
-    select(ID, NES, pvalue, p.adjust) %>%
+    dplyr::select(ID, NES, pvalue, p.adjust) %>%
     mutate(database = db_name)
 }
 
