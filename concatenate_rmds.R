@@ -89,8 +89,8 @@ for (i in seq_along(phases)) {
     lines <- lines[(yaml_end + 1):length(lines)]
   }
 
-  # Remove setup chunk (```{r setup, ...} ... ```)
-  # Find first chunk that contains 'setup' in its header
+  # Process setup chunk: remove library() calls and knitr::opts_chunk$set()
+  # but keep other code (dir.create, variable definitions, etc.)
   in_setup <- FALSE
   setup_start <- NULL
   setup_end <- NULL
@@ -105,7 +105,46 @@ for (i in seq_along(phases)) {
   }
 
   if (!is.null(setup_start) && !is.null(setup_end)) {
-    lines <- lines[-(setup_start:setup_end)]
+    # Extract the setup chunk body (between header and closing ```)
+    setup_body <- lines[(setup_start + 1):(setup_end - 1)]
+    
+    # Keep lines that are NOT library(), knitr::opts_chunk$set, or their continuations
+    keep_lines <- character(0)
+    in_knitr_block <- FALSE
+    for (sl in setup_body) {
+      if (grepl("^\\s*knitr::opts_chunk", sl)) {
+        in_knitr_block <- TRUE
+        next
+      }
+      if (in_knitr_block) {
+        if (grepl("^\\s*\\)", sl)) {
+          in_knitr_block <- FALSE
+          next
+        }
+        next
+      }
+      if (grepl("^\\s*library\\(", sl)) next
+      if (grepl("^\\s*#.*", sl) && length(keep_lines) == 0) next  # skip leading comments
+      if (grepl("^\\s*$", sl) && length(keep_lines) == 0) next    # skip leading blank lines
+      keep_lines <- c(keep_lines, sl)
+    }
+    
+    # Remove trailing blank lines
+    while (length(keep_lines) > 0 && grepl("^\\s*$", keep_lines[length(keep_lines)])) {
+      keep_lines <- keep_lines[-length(keep_lines)]
+    }
+    
+    # Replace the setup chunk: if there's leftover code, make it a prefixed init chunk
+    if (length(keep_lines) > 0) {
+      init_chunk <- c(
+        paste0("```{r ", prefix, "-init, message=FALSE, warning=FALSE}"),
+        keep_lines,
+        "```"
+      )
+      lines <- c(lines[1:(setup_start - 1)], init_chunk, lines[(setup_end + 1):length(lines)])
+    } else {
+      lines <- lines[-(setup_start:setup_end)]
+    }
   }
 
   # Prefix all chunk labels to make them unique

@@ -71,6 +71,10 @@ This document implements **Phase 1** of the project workflow using the same logi
 
 ## 1. Setup
 
+```{r p1-p1-init, message=FALSE, warning=FALSE}
+PLOTS_DIR <- "plots/phase1"
+dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -431,6 +435,9 @@ This document implements **Phase 2** of the project workflow:
 
 ## 1. Setup
 
+```{r p2-p2-init, message=FALSE, warning=FALSE}
+dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -618,6 +625,10 @@ This document implements **Phase 3** of the project workflow:
 
 ## 1. Setup
 
+```{r p3-p3-init, message=FALSE, warning=FALSE}
+PLOTS_DIR <- "plots/phase3"
+dir.create(PLOTS_DIR, showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -977,6 +988,9 @@ This document implements **Phase 4** of the project workflow:
 
 ## 1. Setup
 
+```{r p4-p4-init, message=FALSE, warning=FALSE}
+dir.create("plots/phase4", showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -1397,6 +1411,9 @@ multiple time points (day 1, day 5, day 7). We process this dataset
 
 ## 1. Setup
 
+```{r p5-p5-init, message=FALSE, warning=FALSE}
+dir.create("plots/phase5", showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -1834,6 +1851,9 @@ publication-ready summary document. Every plot is saved to `plots/phase6/`.
 
 ## 1. Setup
 
+```{r p6-p6-init, message=FALSE, warning=FALSE}
+dir.create("plots/phase6", showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -2151,6 +2171,9 @@ controls. We will:
 
 ## 1. Setup
 
+```{r p7-p7-init, message=FALSE, warning=FALSE}
+dir.create("plots/phase7", showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -2474,6 +2497,9 @@ at the whole-blood level.
 
 ## 1. Setup
 
+```{r p8-p8-init, message=FALSE, warning=FALSE}
+dir.create("plots/phase8", showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -2864,6 +2890,9 @@ simple model from Phase 8.
 
 ## 1. Setup
 
+```{r p9-p9-init, message=FALSE, warning=FALSE}
+dir.create("plots/phase9", showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -3129,6 +3158,9 @@ All plots are saved to `plots/phase10/`. We produce:
 
 ## 1. Setup
 
+```{r p10-p10-init, message=FALSE, warning=FALSE}
+dir.create("plots/phase10", showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -3493,6 +3525,9 @@ All plots are saved to `plots/phase11/`.
 
 ## 1. Setup
 
+```{r p11-p11-init, message=FALSE, warning=FALSE}
+dir.create("plots/phase11", showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -4031,6 +4066,9 @@ Gene sets tested:
 
 ## 1. Setup
 
+```{r p12-p12-init, message=FALSE, warning=FALSE}
+dir.create("plots/phase12", showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
@@ -4424,6 +4462,9 @@ Steps:
 
 ## 1. Setup
 
+```{r p13-p13-init, message=FALSE, warning=FALSE}
+dir.create("plots/phase13", showWarnings = FALSE, recursive = TRUE)
+```
 
 ---
 
