@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.4.27)  6 APR 2026 19:00
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.4.27)  9 APR 2026 13:48
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -392,14 +392,14 @@ m/n/10.95 percent.mt\OT1/cmr/m/n/10.95 , \OT1/cmtt/m/n/10.95 severity\OT1/cmr/m
 [6]
 
 [7]
-<plots/phase1/phase1_step05_genes_per_cell.png, id=405, 903.375pt x 552.0625pt>
+<plots/phase1/phase1_step05_genes_per_cell.png, id=521, 903.375pt x 552.0625pt>
 
 File: plots/phase1/phase1_step05_genes_per_cell.png Graphic file (type png)
 <use plots/phase1/phase1_step05_genes_per_cell.png>
 Package pdftex.def Info: plots/phase1/phase1_step05_genes_per_cell.png  used on
  input line 483.
 (pdftex.def)             Requested size: 386.96027pt x 236.4809pt.
-<plots/phase1/phase1_step07_mito_distribution.png, id=407, 903.375pt x 552.0625
+<plots/phase1/phase1_step07_mito_distribution.png, id=523, 903.375pt x 552.0625
 pt>
 File: plots/phase1/phase1_step07_mito_distribution.png Graphic file (type png)
 <use plots/phase1/phase1_step07_mito_distribution.png>
@@ -410,14 +410,14 @@ Package pdftex.def Info: plots/phase1/phase1_step07_mito_distribution.png  used
 
 [8 <./plots/phase1/phase1_step05_genes_per_cell.png> <./plots/phase1/phase1_ste
 p07_mito_distribution.png>]
-<plots/phase1/phase1_step08_violin_qc_metrics.png, id=415, 794.97pt x 289.08pt>
+<plots/phase1/phase1_step08_violin_qc_metrics.png, id=531, 794.97pt x 289.08pt>
 
 File: plots/phase1/phase1_step08_violin_qc_metrics.png Graphic file (type png)
 <use plots/phase1/phase1_step08_violin_qc_metrics.png>
 Package pdftex.def Info: plots/phase1/phase1_step08_violin_qc_metrics.png  used
  on input line 515.
 (pdftex.def)             Requested size: 455.24411pt x 165.54922pt.
-<plots/phase1/phase1_step08_scatter_qc_metrics.png, id=416, 722.7pt x 289.08pt>
+<plots/phase1/phase1_step08_scatter_qc_metrics.png, id=532, 722.7pt x 289.08pt>
 
 File: plots/phase1/phase1_step08_scatter_qc_metrics.png Graphic file (type png)
 
@@ -429,7 +429,7 @@ d on input line 519.
 
 [9 <./plots/phase1/phase1_step08_violin_qc_metrics.png> <./plots/phase1/phase1_
 step08_scatter_qc_metrics.png>]
-<plots/phase1/phase1_step11_before_after_filtering.png, id=423, 794.97pt x 578.
+<plots/phase1/phase1_step11_before_after_filtering.png, id=539, 794.97pt x 578.
 16pt>
 File: plots/phase1/phase1_step11_before_after_filtering.png Graphic file (type 
 png)
@@ -468,7 +468,7 @@ Overfull \hbox (9.00603pt too wide) in paragraph at lines 697--703
 s, scaled to 10,000, then log-transformed)
  []
 
-<plots/phase2/phase2_step05a_pc_loadings.png, id=439, 722.7pt x 578.16pt>
+<plots/phase2/phase2_step05a_pc_loadings.png, id=556, 722.7pt x 578.16pt>
 File: plots/phase2/phase2_step05a_pc_loadings.png Graphic file (type png)
 <use plots/phase2/phase2_step05a_pc_loadings.png>
 Package pdftex.def Info: plots/phase2/phase2_step05a_pc_loadings.png  used on i
@@ -477,7 +477,7 @@ nput line 724.
 
 
 [13]
-<plots/phase2/phase2_step05b_pc_heatmaps.png, id=447, 1003.75pt x 1606.0pt>
+<plots/phase2/phase2_step05b_pc_heatmaps.png, id=564, 1003.75pt x 1606.0pt>
 File: plots/phase2/phase2_step05b_pc_heatmaps.png Graphic file (type png)
 <use plots/phase2/phase2_step05b_pc_heatmaps.png>
 Package pdftex.def Info: plots/phase2/phase2_step05b_pc_heatmaps.png  used on i
@@ -491,7 +491,7 @@ Overfull \vbox (48.77194pt too high) has occurred while \output is active []
 
 
 [15 <./plots/phase2/phase2_step05b_pc_heatmaps.png>]
-<plots/phase2/phase2_step06_elbow_plot.png, id=458, 578.16pt x 361.35pt>
+<plots/phase2/phase2_step06_elbow_plot.png, id=575, 578.16pt x 361.35pt>
 File: plots/phase2/phase2_step06_elbow_plot.png Graphic file (type png)
 <use plots/phase2/phase2_step06_elbow_plot.png>
 Package pdftex.def Info: plots/phase2/phase2_step06_elbow_plot.png  used on inp
@@ -500,13 +500,13 @@ ut line 784.
 
 
 [16 <./plots/phase2/phase2_step06_elbow_plot.png>]
-<plots/phase2/phase2_step07_umap.png, id=464, 578.16pt x 433.62pt>
+<plots/phase2/phase2_step07_umap.png, id=581, 578.16pt x 433.62pt>
 File: plots/phase2/phase2_step07_umap.png Graphic file (type png)
 <use plots/phase2/phase2_step07_umap.png>
 Package pdftex.def Info: plots/phase2/phase2_step07_umap.png  used on input lin
 e 821.
 (pdftex.def)             Requested size: 386.96027pt x 290.21953pt.
-<plots/phase2/phase2_step08_tsne.png, id=465, 578.16pt x 433.62pt>
+<plots/phase2/phase2_step08_tsne.png, id=582, 578.16pt x 433.62pt>
 File: plots/phase2/phase2_step08_tsne.png Graphic file (type png)
 <use plots/phase2/phase2_step08_tsne.png>
 Package pdftex.def Info: plots/phase2/phase2_step08_tsne.png  used on input lin
@@ -515,7 +515,7 @@ e 851.
 
 
 [17 <./plots/phase2/phase2_step07_umap.png>]
-<plots/phase2/phase2_step09_umap_vs_tsne.png, id=471, 1011.78pt x 361.35pt>
+<plots/phase2/phase2_step09_umap_vs_tsne.png, id=588, 1011.78pt x 361.35pt>
 File: plots/phase2/phase2_step09_umap_vs_tsne.png Graphic file (type png)
 <use plots/phase2/phase2_step09_umap_vs_tsne.png>
 Package pdftex.def Info: plots/phase2/phase2_step09_umap_vs_tsne.png  used on i
@@ -545,7 +545,7 @@ and I'll forget about whatever was undefined.
 
 
 [19]
-<plots/phase3/phase3_step06_resolutions_comparison.png, id=484, 1156.32pt x 867
+<plots/phase3/phase3_step06_resolutions_comparison.png, id=601, 1156.32pt x 867
 .24pt>
 File: plots/phase3/phase3_step06_resolutions_comparison.png Graphic file (type 
 png)
@@ -553,7 +553,7 @@ png)
 Package pdftex.def Info: plots/phase3/phase3_step06_resolutions_comparison.png 
  used on input line 949.
 (pdftex.def)             Requested size: 455.24411pt x 341.42464pt.
-<plots/phase3/phase3_step07a_umap_clusters_final.png, id=485, 722.7pt x 505.89p
+<plots/phase3/phase3_step07a_umap_clusters_final.png, id=602, 722.7pt x 505.89p
 t>
 File: plots/phase3/phase3_step07a_umap_clusters_final.png Graphic file (type pn
 g)
@@ -566,7 +566,7 @@ sed on input line 989.
 [20 <./plots/phase3/phase3_step06_resolutions_comparison.png>]
 
 [21 <./plots/phase3/phase3_step07a_umap_clusters_final.png>]
-<plots/phase3/phase3_step07b_umap_vs_tsne.png, id=495, 1156.32pt x 433.62pt>
+<plots/phase3/phase3_step07b_umap_vs_tsne.png, id=612, 1156.32pt x 433.62pt>
 File: plots/phase3/phase3_step07b_umap_vs_tsne.png Graphic file (type png)
 <use plots/phase3/phase3_step07b_umap_vs_tsne.png>
 Package pdftex.def Info: plots/phase3/phase3_step07b_umap_vs_tsne.png  used on 
@@ -575,7 +575,7 @@ input line 1043.
 
 
 [22 <./plots/phase3/phase3_step07b_umap_vs_tsne.png>]
-<plots/phase3/phase3_step08a_markers_monocytes.png, id=500, 867.24pt x 289.08pt
+<plots/phase3/phase3_step08a_markers_monocytes.png, id=617, 867.24pt x 289.08pt
 >
 File: plots/phase3/phase3_step08a_markers_monocytes.png Graphic file (type png)
 
@@ -593,7 +593,7 @@ misspelled it (e.g., `\hobx'), type `I' and the correct
 spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
-<plots/phase3/phase3_step08b_markers_tcells.png, id=501, 1156.32pt x 289.08pt>
+<plots/phase3/phase3_step08b_markers_tcells.png, id=618, 1156.32pt x 289.08pt>
 File: plots/phase3/phase3_step08b_markers_tcells.png Graphic file (type png)
 <use plots/phase3/phase3_step08b_markers_tcells.png>
 Package pdftex.def Info: plots/phase3/phase3_step08b_markers_tcells.png  used o
@@ -602,13 +602,13 @@ n input line 1129.
 
 
 [23 <./plots/phase3/phase3_step08a_markers_monocytes.png>]
-<plots/phase3/phase3_step08c_markers_bcells.png, id=508, 578.16pt x 289.08pt>
+<plots/phase3/phase3_step08c_markers_bcells.png, id=625, 578.16pt x 289.08pt>
 File: plots/phase3/phase3_step08c_markers_bcells.png Graphic file (type png)
 <use plots/phase3/phase3_step08c_markers_bcells.png>
 Package pdftex.def Info: plots/phase3/phase3_step08c_markers_bcells.png  used o
 n input line 1152.
 (pdftex.def)             Requested size: 455.24411pt x 227.62082pt.
-<plots/phase3/phase3_step08d_markers_nk.png, id=509, 578.16pt x 289.08pt>
+<plots/phase3/phase3_step08d_markers_nk.png, id=626, 578.16pt x 289.08pt>
 File: plots/phase3/phase3_step08d_markers_nk.png Graphic file (type png)
 <use plots/phase3/phase3_step08d_markers_nk.png>
 Package pdftex.def Info: plots/phase3/phase3_step08d_markers_nk.png  used on in
@@ -618,7 +618,7 @@ put line 1167.
 
 [24 <./plots/phase3/phase3_step08b_markers_tcells.png> <./plots/phase3/phase3_s
 tep08c_markers_bcells.png>]
-<plots/phase3/phase3_step08e_dotplot_markers.png, id=517, 867.24pt x 433.62pt>
+<plots/phase3/phase3_step08e_dotplot_markers.png, id=633, 867.24pt x 433.62pt>
 File: plots/phase3/phase3_step08e_dotplot_markers.png Graphic file (type png)
 <use plots/phase3/phase3_step08e_dotplot_markers.png>
 Package pdftex.def Info: plots/phase3/phase3_step08e_dotplot_markers.png  used 
@@ -634,7 +634,7 @@ es-sion of other mark-ers $\OMS/cmsy/m/n/10.95 !$ \OT1/cmr/bx/n/10.95 platelets
  / megakary-
  []
 
-<plots/phase3/phase3_step09c_umap_singler.png, id=525, 867.24pt x 505.89pt>
+<plots/phase3/phase3_step09c_umap_singler.png, id=641, 867.24pt x 505.89pt>
 File: plots/phase3/phase3_step09c_umap_singler.png Graphic file (type png)
 <use plots/phase3/phase3_step09c_umap_singler.png>
 Package pdftex.def Info: plots/phase3/phase3_step09c_umap_singler.png  used on 
@@ -654,7 +654,7 @@ Overfull \hbox (8.90889pt too wide) in paragraph at lines 1275--1279
  = a mixed clus-ter of Ery-thro-cytes, HSC, Eosinophils,
  []
 
-<plots/phase3/phase3_step09d_ditto_umap.png, id=530, 867.24pt x 505.89pt>
+<plots/phase3/phase3_step09d_ditto_umap.png, id=646, 867.24pt x 505.89pt>
 File: plots/phase3/phase3_step09d_ditto_umap.png Graphic file (type png)
 <use plots/phase3/phase3_step09d_ditto_umap.png>
 Package pdftex.def Info: plots/phase3/phase3_step09d_ditto_umap.png  used on in
@@ -665,7 +665,7 @@ put line 1286.
 [27 <./plots/phase3/phase3_step09c_umap_singler.png>]
 
 [28 <./plots/phase3/phase3_step09d_ditto_umap.png>]
-<plots/phase3/phase3_step10a_marker_heatmap.png, id=540, 1405.25pt x 1003.75pt>
+<plots/phase3/phase3_step10a_marker_heatmap.png, id=656, 1405.25pt x 1003.75pt>
 
 File: plots/phase3/phase3_step10a_marker_heatmap.png Graphic file (type png)
 <use plots/phase3/phase3_step10a_marker_heatmap.png>
@@ -706,7 +706,7 @@ Package hyperref Warning: Token not allowed in a PDF string (Unicode):
 
 
 [31]
-<plots/phase4/phase4_umap_split_severity.png, id=556, 1156.32pt x 361.35pt>
+<plots/phase4/phase4_umap_split_severity.png, id=672, 1156.32pt x 361.35pt>
 File: plots/phase4/phase4_umap_split_severity.png Graphic file (type png)
 <use plots/phase4/phase4_umap_split_severity.png>
 Package pdftex.def Info: plots/phase4/phase4_umap_split_severity.png  used on i
@@ -715,13 +715,13 @@ nput line 1558.
 
 
 [32 <./plots/phase4/phase4_umap_split_severity.png>]
-<plots/phase4/phase4_composition_barplot.png, id=568, 722.7pt x 433.62pt>
+<plots/phase4/phase4_composition_barplot.png, id=684, 722.7pt x 433.62pt>
 File: plots/phase4/phase4_composition_barplot.png Graphic file (type png)
 <use plots/phase4/phase4_composition_barplot.png>
 Package pdftex.def Info: plots/phase4/phase4_composition_barplot.png  used on i
 nput line 1585.
 (pdftex.def)             Requested size: 409.71692pt x 245.82944pt.
-<plots/phase4/phase4_violin_scores_severity.png, id=569, 1011.78pt x 361.35pt>
+<plots/phase4/phase4_violin_scores_severity.png, id=685, 1011.78pt x 361.35pt>
 File: plots/phase4/phase4_violin_scores_severity.png Graphic file (type png)
 <use plots/phase4/phase4_violin_scores_severity.png>
 Package pdftex.def Info: plots/phase4/phase4_violin_scores_severity.png  used o
@@ -730,7 +730,7 @@ n input line 1621.
 
 
 [33 <./plots/phase4/phase4_composition_barplot.png>]
-<plots/phase4/phase4_coactivation_scatter.png, id=574, 867.24pt x 578.16pt>
+<plots/phase4/phase4_coactivation_scatter.png, id=690, 867.24pt x 578.16pt>
 File: plots/phase4/phase4_coactivation_scatter.png Graphic file (type png)
 <use plots/phase4/phase4_coactivation_scatter.png>
 Package pdftex.def Info: plots/phase4/phase4_coactivation_scatter.png  used on 
@@ -741,7 +741,7 @@ input line 1659.
 [34 <./plots/phase4/phase4_violin_scores_severity.png>]
 
 [35 <./plots/phase4/phase4_coactivation_scatter.png>]
-<plots/phase4/phase4_donor_boxplots.png, id=583, 1011.78pt x 361.35pt>
+<plots/phase4/phase4_donor_boxplots.png, id=700, 1011.78pt x 361.35pt>
 File: plots/phase4/phase4_donor_boxplots.png Graphic file (type png)
 <use plots/phase4/phase4_donor_boxplots.png>
 Package pdftex.def Info: plots/phase4/phase4_donor_boxplots.png  used on input 
@@ -768,7 +768,7 @@ misspelled it (e.g., `\hobx'), type `I' and the correct
 spelling (e.g., `I\hbox'). Otherwise just continue,
 and I'll forget about whatever was undefined.
 
-<plots/phase4/phase4_volcano_monocyte_DE.png, id=588, 722.7pt x 578.16pt>
+<plots/phase4/phase4_volcano_monocyte_DE.png, id=705, 722.7pt x 578.16pt>
 File: plots/phase4/phase4_volcano_monocyte_DE.png Graphic file (type png)
 <use plots/phase4/phase4_volcano_monocyte_DE.png>
 Package pdftex.def Info: plots/phase4/phase4_volcano_monocyte_DE.png  used on i
@@ -779,7 +779,7 @@ nput line 1776.
 [37 <./plots/phase4/phase4_volcano_monocyte_DE.png>]
 
 [38]
-<plots/phase5/phase5_qc_violin.png, id=603, 867.24pt x 289.08pt>
+<plots/phase5/phase5_qc_violin.png, id=720, 867.24pt x 289.08pt>
 File: plots/phase5/phase5_qc_violin.png Graphic file (type png)
 <use plots/phase5/phase5_qc_violin.png>
 Package pdftex.def Info: plots/phase5/phase5_qc_violin.png  used on input line 
@@ -788,13 +788,13 @@ Package pdftex.def Info: plots/phase5/phase5_qc_violin.png  used on input line
 
 
 [39 <./plots/phase5/phase5_qc_violin.png>]
-<plots/phase5/phase5_qc_scatter.png, id=609, 867.24pt x 289.08pt>
+<plots/phase5/phase5_qc_scatter.png, id=726, 867.24pt x 289.08pt>
 File: plots/phase5/phase5_qc_scatter.png Graphic file (type png)
 <use plots/phase5/phase5_qc_scatter.png>
 Package pdftex.def Info: plots/phase5/phase5_qc_scatter.png  used on input line
  1926.
 (pdftex.def)             Requested size: 432.48051pt x 144.1603pt.
-<plots/phase5/phase5_elbow_plot.png, id=610, 578.16pt x 289.08pt>
+<plots/phase5/phase5_elbow_plot.png, id=727, 578.16pt x 289.08pt>
 File: plots/phase5/phase5_elbow_plot.png Graphic file (type png)
 <use plots/phase5/phase5_elbow_plot.png>
 Package pdftex.def Info: plots/phase5/phase5_elbow_plot.png  used on input line
@@ -804,13 +804,13 @@ Package pdftex.def Info: plots/phase5/phase5_elbow_plot.png  used on input line
 
 [40 <./plots/phase5/phase5_qc_scatter.png> <./plots/phase5/phase5_elbow_plot.pn
 g>]
-<plots/phase5/phase5_umap_overview.png, id=617, 1011.78pt x 361.35pt>
+<plots/phase5/phase5_umap_overview.png, id=734, 1011.78pt x 361.35pt>
 File: plots/phase5/phase5_umap_overview.png Graphic file (type png)
 <use plots/phase5/phase5_umap_overview.png>
 Package pdftex.def Info: plots/phase5/phase5_umap_overview.png  used on input l
 ine 1976.
 (pdftex.def)             Requested size: 455.24411pt x 162.58945pt.
-<plots/phase5/phase5_marker_featureplots.png, id=618, 1156.32pt x 867.24pt>
+<plots/phase5/phase5_marker_featureplots.png, id=735, 1156.32pt x 867.24pt>
 File: plots/phase5/phase5_marker_featureplots.png Graphic file (type png)
 <use plots/phase5/phase5_marker_featureplots.png>
 Package pdftex.def Info: plots/phase5/phase5_marker_featureplots.png  used on i
@@ -819,7 +819,7 @@ nput line 2010.
 
 
 [41 <./plots/phase5/phase5_umap_overview.png>]
-<plots/phase5/phase5_umap_celltype.png, id=623, 867.24pt x 505.89pt>
+<plots/phase5/phase5_umap_celltype.png, id=740, 867.24pt x 505.89pt>
 File: plots/phase5/phase5_umap_celltype.png Graphic file (type png)
 <use plots/phase5/phase5_umap_celltype.png>
 Package pdftex.def Info: plots/phase5/phase5_umap_celltype.png  used on input l
@@ -828,7 +828,7 @@ ine 2038.
 
 
 [42 <./plots/phase5/phase5_marker_featureplots.png>]
-<plots/phase5/phase5_composition_time.png, id=629, 867.24pt x 433.62pt>
+<plots/phase5/phase5_composition_time.png, id=746, 867.24pt x 433.62pt>
 File: plots/phase5/phase5_composition_time.png Graphic file (type png)
 <use plots/phase5/phase5_composition_time.png>
 Package pdftex.def Info: plots/phase5/phase5_composition_time.png  used on inpu
@@ -837,7 +837,7 @@ t line 2060.
 
 
 [43 <./plots/phase5/phase5_umap_celltype.png>]
-<plots/phase5/phase5_coactivation_scatter.png, id=636, 867.24pt x 433.62pt>
+<plots/phase5/phase5_coactivation_scatter.png, id=753, 867.24pt x 433.62pt>
 File: plots/phase5/phase5_coactivation_scatter.png Graphic file (type png)
 <use plots/phase5/phase5_coactivation_scatter.png>
 Package pdftex.def Info: plots/phase5/phase5_coactivation_scatter.png  used on 
@@ -846,7 +846,7 @@ input line 2092.
 
 
 [44 <./plots/phase5/phase5_composition_time.png>]
-<plots/phase5/phase5_longitudinal_dynamics.png, id=641, 867.24pt x 361.35pt>
+<plots/phase5/phase5_longitudinal_dynamics.png, id=758, 867.24pt x 361.35pt>
 File: plots/phase5/phase5_longitudinal_dynamics.png Graphic file (type png)
 <use plots/phase5/phase5_longitudinal_dynamics.png>
 Package pdftex.def Info: plots/phase5/phase5_longitudinal_dynamics.png  used on
@@ -855,7 +855,7 @@ Package pdftex.def Info: plots/phase5/phase5_longitudinal_dynamics.png  used on
 
 
 [45 <./plots/phase5/phase5_coactivation_scatter.png>]
-<plots/phase5/phase5_toci_violin.png, id=646, 867.24pt x 361.35pt>
+<plots/phase5/phase5_toci_violin.png, id=763, 867.24pt x 361.35pt>
 File: plots/phase5/phase5_toci_violin.png Graphic file (type png)
 <use plots/phase5/phase5_toci_violin.png>
 Package pdftex.def Info: plots/phase5/phase5_toci_violin.png  used on input lin
@@ -878,7 +878,7 @@ Overfull \hbox (1.45331pt too wide) in paragraph at lines 2227--2232
 
 
 [47 <./plots/phase5/phase5_toci_violin.png>]
-<plots/phase6/phase6_01_umap_celltype.png, id=660, 722.7pt x 505.89pt>
+<plots/phase6/phase6_01_umap_celltype.png, id=776, 722.7pt x 505.89pt>
 File: plots/phase6/phase6_01_umap_celltype.png Graphic file (type png)
 <use plots/phase6/phase6_01_umap_celltype.png>
 Package pdftex.def Info: plots/phase6/phase6_01_umap_celltype.png  used on inpu
@@ -887,13 +887,13 @@ t line 2269.
 
 
 [48 <./plots/phase6/phase6_01_umap_celltype.png>]
-<plots/phase6/phase6_02_umap_split_severity.png, id=667, 1156.32pt x 361.35pt>
+<plots/phase6/phase6_02_umap_split_severity.png, id=783, 1156.32pt x 361.35pt>
 File: plots/phase6/phase6_02_umap_split_severity.png Graphic file (type png)
 <use plots/phase6/phase6_02_umap_split_severity.png>
 Package pdftex.def Info: plots/phase6/phase6_02_umap_split_severity.png  used o
 n input line 2296.
 (pdftex.def)             Requested size: 455.24411pt x 142.26025pt.
-<plots/phase6/phase6_09_composition_barplot.png, id=668, 722.7pt x 433.62pt>
+<plots/phase6/phase6_09_composition_barplot.png, id=784, 722.7pt x 433.62pt>
 File: plots/phase6/phase6_09_composition_barplot.png Graphic file (type png)
 <use plots/phase6/phase6_09_composition_barplot.png>
 Package pdftex.def Info: plots/phase6/phase6_09_composition_barplot.png  used o
@@ -902,7 +902,7 @@ n input line 2316.
 
 
 [49 <./plots/phase6/phase6_02_umap_split_severity.png>]
-<plots/phase6/phase6_03_feature_ISG.png, id=675, 1084.05pt x 361.35pt>
+<plots/phase6/phase6_03_feature_ISG.png, id=791, 1084.05pt x 361.35pt>
 File: plots/phase6/phase6_03_feature_ISG.png Graphic file (type png)
 <use plots/phase6/phase6_03_feature_ISG.png>
 Package pdftex.def Info: plots/phase6/phase6_03_feature_ISG.png  used on input 
@@ -912,13 +912,13 @@ line 2343.
 
 [50 <./plots/phase6/phase6_09_composition_barplot.png> <./plots/phase6/phase6_0
 3_feature_ISG.png>]
-<plots/phase6/phase6_04_feature_TNF_IL1.png, id=680, 1084.05pt x 361.35pt>
+<plots/phase6/phase6_04_feature_TNF_IL1.png, id=796, 1084.05pt x 361.35pt>
 File: plots/phase6/phase6_04_feature_TNF_IL1.png Graphic file (type png)
 <use plots/phase6/phase6_04_feature_TNF_IL1.png>
 Package pdftex.def Info: plots/phase6/phase6_04_feature_TNF_IL1.png  used on in
 put line 2367.
 (pdftex.def)             Requested size: 455.24411pt x 151.74942pt.
-<plots/phase6/phase6_05_violin_module_scores.png, id=681, 867.24pt x 361.35pt>
+<plots/phase6/phase6_05_violin_module_scores.png, id=797, 867.24pt x 361.35pt>
 File: plots/phase6/phase6_05_violin_module_scores.png Graphic file (type png)
 <use plots/phase6/phase6_05_violin_module_scores.png>
 Package pdftex.def Info: plots/phase6/phase6_05_violin_module_scores.png  used 
@@ -927,7 +927,7 @@ on input line 2394.
 
 
 [51 <./plots/phase6/phase6_04_feature_TNF_IL1.png>]
-<plots/phase6/phase6_06_donor_coactivation_boxplot.png, id=686, 578.16pt x 433.
+<plots/phase6/phase6_06_donor_coactivation_boxplot.png, id=802, 578.16pt x 433.
 62pt>
 File: plots/phase6/phase6_06_donor_coactivation_boxplot.png Graphic file (type 
 png)
@@ -938,7 +938,7 @@ Package pdftex.def Info: plots/phase6/phase6_06_donor_coactivation_boxplot.png
 
 
 [52 <./plots/phase6/phase6_05_violin_module_scores.png>]
-<plots/phase6/phase6_07_volcano_monocyte_DE.png, id=691, 722.7pt x 578.16pt>
+<plots/phase6/phase6_07_volcano_monocyte_DE.png, id=807, 722.7pt x 578.16pt>
 File: plots/phase6/phase6_07_volcano_monocyte_DE.png Graphic file (type png)
 <use plots/phase6/phase6_07_volcano_monocyte_DE.png>
 Package pdftex.def Info: plots/phase6/phase6_07_volcano_monocyte_DE.png  used o
@@ -947,7 +947,7 @@ n input line 2453.
 
 
 [53 <./plots/phase6/phase6_06_donor_coactivation_boxplot.png>]
-<plots/phase6/phase6_08_marker_heatmap.png, id=696, 1011.78pt x 722.7pt>
+<plots/phase6/phase6_08_marker_heatmap.png, id=812, 1011.78pt x 722.7pt>
 File: plots/phase6/phase6_08_marker_heatmap.png Graphic file (type png)
 <use plots/phase6/phase6_08_marker_heatmap.png>
 Package pdftex.def Info: plots/phase6/phase6_08_marker_heatmap.png  used on inp
@@ -956,7 +956,7 @@ ut line 2480.
 
 
 [54 <./plots/phase6/phase6_07_volcano_monocyte_DE.png>]
-<plots/phase6/phase6_10_replication_coactivation.png, id=701, 722.7pt x 433.62p
+<plots/phase6/phase6_10_replication_coactivation.png, id=817, 722.7pt x 433.62p
 t>
 File: plots/phase6/phase6_10_replication_coactivation.png Graphic file (type pn
 g)
@@ -973,7 +973,7 @@ Overfull \hbox (0.15024pt too wide) in paragraph at lines 2512--2514
 s Tocilizumab
  []
 
-<plots/phase6/phase6_summary_panel.png, id=707, 1445.4pt x 867.24pt>
+<plots/phase6/phase6_summary_panel.png, id=823, 1445.4pt x 867.24pt>
 File: plots/phase6/phase6_summary_panel.png Graphic file (type png)
 <use plots/phase6/phase6_summary_panel.png>
 Package pdftex.def Info: plots/phase6/phase6_summary_panel.png  used on input l
@@ -986,13 +986,13 @@ ine 2523.
 [57 <./plots/phase6/phase6_summary_panel.png>]
 
 [58]
-<plots/phase7/phase7_severity_distribution.png, id=728, 578.16pt x 361.35pt>
+<plots/phase7/phase7_severity_distribution.png, id=845, 578.16pt x 361.35pt>
 File: plots/phase7/phase7_severity_distribution.png Graphic file (type png)
 <use plots/phase7/phase7_severity_distribution.png>
 Package pdftex.def Info: plots/phase7/phase7_severity_distribution.png  used on
  input line 2661.
 (pdftex.def)             Requested size: 341.43307pt x 213.39314pt.
-<plots/phase7/phase7_library_sizes.png, id=729, 722.7pt x 361.35pt>
+<plots/phase7/phase7_library_sizes.png, id=846, 722.7pt x 361.35pt>
 File: plots/phase7/phase7_library_sizes.png Graphic file (type png)
 <use plots/phase7/phase7_library_sizes.png>
 Package pdftex.def Info: plots/phase7/phase7_library_sizes.png  used on input l
@@ -1001,7 +1001,7 @@ ine 2676.
 
 
 [59 <./plots/phase7/phase7_severity_distribution.png>]
-<plots/phase7/phase7_gender_balance.png, id=734, 578.16pt x 361.35pt>
+<plots/phase7/phase7_gender_balance.png, id=851, 578.16pt x 361.35pt>
 File: plots/phase7/phase7_gender_balance.png Graphic file (type png)
 <use plots/phase7/phase7_gender_balance.png>
 Package pdftex.def Info: plots/phase7/phase7_gender_balance.png  used on input 
@@ -1015,7 +1015,7 @@ ance.png>]
 [61]
 
 [62]
-<plots/phase8/phase8_mean_variance.png, id=752, 578.16pt x 433.62pt>
+<plots/phase8/phase8_mean_variance.png, id=869, 578.16pt x 433.62pt>
 File: plots/phase8/phase8_mean_variance.png Graphic file (type png)
 <use plots/phase8/phase8_mean_variance.png>
 Package pdftex.def Info: plots/phase8/phase8_mean_variance.png  used on input l
@@ -1024,13 +1024,13 @@ ine 2835.
 
 
 [63 <./plots/phase8/phase8_mean_variance.png>]
-<plots/phase8/phase8_MA_plots.png, id=757, 867.24pt x 361.35pt>
+<plots/phase8/phase8_MA_plots.png, id=874, 867.24pt x 361.35pt>
 File: plots/phase8/phase8_MA_plots.png Graphic file (type png)
 <use plots/phase8/phase8_MA_plots.png>
 Package pdftex.def Info: plots/phase8/phase8_MA_plots.png  used on input line 2
 876.
 (pdftex.def)             Requested size: 455.24411pt x 189.68402pt.
-<plots/phase8/phase8_volcano.png, id=758, 722.7pt x 578.16pt>
+<plots/phase8/phase8_volcano.png, id=875, 722.7pt x 578.16pt>
 File: plots/phase8/phase8_volcano.png Graphic file (type png)
 <use plots/phase8/phase8_volcano.png>
 Package pdftex.def Info: plots/phase8/phase8_volcano.png  used on input line 29
@@ -1041,7 +1041,7 @@ Package pdftex.def Info: plots/phase8/phase8_volcano.png  used on input line 29
 [64 <./plots/phase8/phase8_MA_plots.png>]
 
 [65 <./plots/phase8/phase8_volcano.png>]
-<plots/phase8/phase8_heatmap_top30.png, id=768, 722.7pt x 578.16pt>
+<plots/phase8/phase8_heatmap_top30.png, id=885, 722.7pt x 578.16pt>
 File: plots/phase8/phase8_heatmap_top30.png Graphic file (type png)
 <use plots/phase8/phase8_heatmap_top30.png>
 Package pdftex.def Info: plots/phase8/phase8_heatmap_top30.png  used on input l
@@ -1050,7 +1050,7 @@ ine 2971.
 
 
 [66 <./plots/phase8/phase8_heatmap_top30.png>]
-<plots/phase8/phase8_key_gene_boxplots.png, id=775, 1011.78pt x 361.35pt>
+<plots/phase8/phase8_key_gene_boxplots.png, id=891, 1011.78pt x 361.35pt>
 File: plots/phase8/phase8_key_gene_boxplots.png Graphic file (type png)
 <use plots/phase8/phase8_key_gene_boxplots.png>
 Package pdftex.def Info: plots/phase8/phase8_key_gene_boxplots.png  used on inp
@@ -1061,13 +1061,13 @@ ut line 3014.
 [67 <./plots/phase8/phase8_key_gene_boxplots.png>]
 
 [68]
-<plots/phase9/phase9_gender_balance.png, id=791, 578.16pt x 361.35pt>
+<plots/phase9/phase9_gender_balance.png, id=905, 578.16pt x 361.35pt>
 File: plots/phase9/phase9_gender_balance.png Graphic file (type png)
 <use plots/phase9/phase9_gender_balance.png>
 Package pdftex.def Info: plots/phase9/phase9_gender_balance.png  used on input 
 line 3127.
 (pdftex.def)             Requested size: 341.43307pt x 213.39314pt.
-<plots/phase9/phase9_MA_comparison.png, id=792, 867.24pt x 361.35pt>
+<plots/phase9/phase9_MA_comparison.png, id=906, 867.24pt x 361.35pt>
 File: plots/phase9/phase9_MA_comparison.png Graphic file (type png)
 <use plots/phase9/phase9_MA_comparison.png>
 Package pdftex.def Info: plots/phase9/phase9_MA_comparison.png  used on input l
@@ -1076,7 +1076,7 @@ ine 3158.
 
 
 [69 <./plots/phase9/phase9_gender_balance.png>]
-<plots/phase9/phase9_lfc_correlation.png, id=799, 578.16pt x 578.16pt>
+<plots/phase9/phase9_lfc_correlation.png, id=911, 578.16pt x 578.16pt>
 File: plots/phase9/phase9_lfc_correlation.png Graphic file (type png)
 <use plots/phase9/phase9_lfc_correlation.png>
 Package pdftex.def Info: plots/phase9/phase9_lfc_correlation.png  used on input
@@ -1087,8 +1087,296 @@ Package pdftex.def Info: plots/phase9/phase9_lfc_correlation.png  used on input
 [70 <./plots/phase9/phase9_MA_comparison.png>]
 
 [71 <./plots/phase9/phase9_lfc_correlation.png>]
+<plots/phase10/phase10_volcano.png, id=921, 867.24pt x 650.43pt>
+File: plots/phase10/phase10_volcano.png Graphic file (type png)
+<use plots/phase10/phase10_volcano.png>
+Package pdftex.def Info: plots/phase10/phase10_volcano.png  used on input line 
+3291.
+(pdftex.def)             Requested size: 455.24411pt x 341.43124pt.
 
-[72] (./project_overview.aux)
+
+[72]
+
+[73 <./plots/phase10/phase10_volcano.png>]
+<plots/phase10/phase10_heatmap_top50.png, id=940, 867.24pt x 1011.78pt>
+File: plots/phase10/phase10_heatmap_top50.png Graphic file (type png)
+<use plots/phase10/phase10_heatmap_top50.png>
+Package pdftex.def Info: plots/phase10/phase10_heatmap_top50.png  used on input
+ line 3358.
+(pdftex.def)             Requested size: 432.48051pt x 504.56105pt.
+
+
+[74]
+
+[75 <./plots/phase10/phase10_heatmap_top50.png>]
+<plots/phase10/phase10_ISG_panel.png, id=950, 1011.78pt x 361.35pt>
+File: plots/phase10/phase10_ISG_panel.png Graphic file (type png)
+<use plots/phase10/phase10_ISG_panel.png>
+Package pdftex.def Info: plots/phase10/phase10_ISG_panel.png  used on input lin
+e 3403.
+(pdftex.def)             Requested size: 455.24411pt x 162.58945pt.
+
+Overfull \hbox (7.87329pt too wide) in paragraph at lines 3412--3417
+[]\OT1/cmr/bx/n/10.95 ISG15: \OT1/cmr/m/n/10.95 Both groups have a me-dian near
+ 1,000--1,500, with wide vari-ance. One Healthy[]Mild
+ []
+
+
+
+[76 <./plots/phase10/phase10_ISG_panel.png>]
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 3436.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `\beta' on input line 3436.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 3436.
+
+<plots/phase10/phase10_TNF_IL1_panel.png, id=955, 1011.78pt x 361.35pt>
+File: plots/phase10/phase10_TNF_IL1_panel.png Graphic file (type png)
+<use plots/phase10/phase10_TNF_IL1_panel.png>
+Package pdftex.def Info: plots/phase10/phase10_TNF_IL1_panel.png  used on input
+ line 3439.
+(pdftex.def)             Requested size: 455.24411pt x 162.58945pt.
+
+
+[77 <./plots/phase10/phase10_TNF_IL1_panel.png>]
+
+[78]
+<plots/phase11/phase11_PCA_scree.png, id=972, 650.43pt x 361.35pt>
+File: plots/phase11/phase11_PCA_scree.png Graphic file (type png)
+<use plots/phase11/phase11_PCA_scree.png>
+Package pdftex.def Info: plots/phase11/phase11_PCA_scree.png  used on input lin
+e 3590.
+(pdftex.def)             Requested size: 409.71692pt x 227.62413pt.
+<plots/phase11/phase11_PCA_severity.png, id=973, 650.43pt x 505.89pt>
+File: plots/phase11/phase11_PCA_severity.png Graphic file (type png)
+<use plots/phase11/phase11_PCA_severity.png>
+Package pdftex.def Info: plots/phase11/phase11_PCA_severity.png  used on input 
+line 3610.
+(pdftex.def)             Requested size: 409.71692pt x 318.67378pt.
+
+
+[79 <./plots/phase11/phase11_PCA_scree.png>]
+<plots/phase11/phase11_PCA_severity_gender.png, id=982, 650.43pt x 505.89pt>
+File: plots/phase11/phase11_PCA_severity_gender.png Graphic file (type png)
+<use plots/phase11/phase11_PCA_severity_gender.png>
+Package pdftex.def Info: plots/phase11/phase11_PCA_severity_gender.png  used on
+ input line 3633.
+(pdftex.def)             Requested size: 409.71692pt x 318.67378pt.
+
+
+[80 <./plots/phase11/phase11_PCA_severity.png>]
+<plots/phase11/phase11_PCA_PC1_PC3.png, id=987, 650.43pt x 505.89pt>
+File: plots/phase11/phase11_PCA_PC1_PC3.png Graphic file (type png)
+<use plots/phase11/phase11_PCA_PC1_PC3.png>
+Package pdftex.def Info: plots/phase11/phase11_PCA_PC1_PC3.png  used on input l
+ine 3650.
+(pdftex.def)             Requested size: 409.71692pt x 318.67378pt.
+
+
+[81 <./plots/phase11/phase11_PCA_severity_gender.png>]
+Overfull \hbox (1.57707pt too wide) in paragraph at lines 3657--3660
+[]\OT1/cmr/m/n/10.95 Two Se-vere sam-ples (S175[]nCoV024, S155[]nCOV021E) and o
+ne Healthy sam-ple (S066[]265)
+ []
+
+<plots/phase11/phase11_correlation_matrix.png, id=992, 722.7pt x 650.43pt>
+File: plots/phase11/phase11_correlation_matrix.png Graphic file (type png)
+<use plots/phase11/phase11_correlation_matrix.png>
+Package pdftex.def Info: plots/phase11/phase11_correlation_matrix.png  used on 
+input line 3674.
+(pdftex.def)             Requested size: 455.24411pt x 409.72343pt.
+
+
+[82 <./plots/phase11/phase11_PCA_PC1_PC3.png>]
+<plots/phase11/phase11_distance_matrix.png, id=997, 722.7pt x 650.43pt>
+File: plots/phase11/phase11_distance_matrix.png Graphic file (type png)
+<use plots/phase11/phase11_distance_matrix.png>
+Package pdftex.def Info: plots/phase11/phase11_distance_matrix.png  used on inp
+ut line 3702.
+(pdftex.def)             Requested size: 455.24411pt x 409.72343pt.
+
+
+[83 <./plots/phase11/phase11_correlation_matrix.png>]
+<plots/phase11/phase11_hierarchical_clustering.png, id=1003, 867.24pt x 433.62p
+t>
+File: plots/phase11/phase11_hierarchical_clustering.png Graphic file (type png)
+
+<use plots/phase11/phase11_hierarchical_clustering.png>
+Package pdftex.def Info: plots/phase11/phase11_hierarchical_clustering.png  use
+d on input line 3723.
+(pdftex.def)             Requested size: 455.24411pt x 227.62082pt.
+
+
+[84 <./plots/phase11/phase11_distance_matrix.png>]
+<plots/phase11/phase11_kmeans_elbow.png, id=1009, 650.43pt x 361.35pt>
+File: plots/phase11/phase11_kmeans_elbow.png Graphic file (type png)
+<use plots/phase11/phase11_kmeans_elbow.png>
+Package pdftex.def Info: plots/phase11/phase11_kmeans_elbow.png  used on input 
+line 3752.
+(pdftex.def)             Requested size: 386.96027pt x 214.98111pt.
+
+
+[85 <./plots/phase11/phase11_hierarchical_clustering.png (PNG copy)>]
+<plots/phase11/phase11_kmeans_fviz.png, id=1015, 650.43pt x 505.89pt>
+File: plots/phase11/phase11_kmeans_fviz.png Graphic file (type png)
+<use plots/phase11/phase11_kmeans_fviz.png>
+Package pdftex.def Info: plots/phase11/phase11_kmeans_fviz.png  used on input l
+ine 3770.
+(pdftex.def)             Requested size: 409.71692pt x 318.67378pt.
+
+
+[86 <./plots/phase11/phase11_kmeans_elbow.png>]
+<plots/phase11/phase11_PCA_kmeans_overlay.png, id=1020, 722.7pt x 505.89pt>
+File: plots/phase11/phase11_PCA_kmeans_overlay.png Graphic file (type png)
+<use plots/phase11/phase11_PCA_kmeans_overlay.png>
+Package pdftex.def Info: plots/phase11/phase11_PCA_kmeans_overlay.png  used on 
+input line 3789.
+(pdftex.def)             Requested size: 409.71692pt x 286.801pt.
+
+
+[87 <./plots/phase11/phase11_kmeans_fviz.png>]
+Overfull \hbox (20.66269pt too wide) in paragraph at lines 3797--3799
+[]\OT1/cmr/m/n/10.95 All blue (Healthy) dots are tri-an-gles (clus-ter 2) | \OT
+1/cmr/bx/n/10.95 per-fect re-cov-ery \OT1/cmr/m/n/10.95 of the en-tire Healthy/
+Mild
+ []
+
+
+
+[88 <./plots/phase11/phase11_PCA_kmeans_overlay.png>]
+
+[89]
+<plots/phase12/phase12_gobp_dotplot.png, id=1038, 1011.78pt x 650.43pt>
+File: plots/phase12/phase12_gobp_dotplot.png Graphic file (type png)
+<use plots/phase12/phase12_gobp_dotplot.png>
+Package pdftex.def Info: plots/phase12/phase12_gobp_dotplot.png  used on input 
+line 3910.
+(pdftex.def)             Requested size: 455.24411pt x 292.66101pt.
+
+
+[90 <./plots/phase12/phase12_gobp_dotplot.png>]
+Overfull \hbox (6.98878pt too wide) in paragraph at lines 3946--3949
+[]\OT1/cmr/bx/n/10.95 GOBP Com-ple-ment Com-plex As-sem-bly with MHC Pro-tein \
+OT1/cmr/m/n/10.95 | antigen-presentation
+ []
+
+<plots/phase12/phase12_hallmark_dotplot.png, id=1043, 939.51pt x 578.16pt>
+File: plots/phase12/phase12_hallmark_dotplot.png Graphic file (type png)
+<use plots/phase12/phase12_hallmark_dotplot.png>
+Package pdftex.def Info: plots/phase12/phase12_hallmark_dotplot.png  used on in
+put line 3958.
+(pdftex.def)             Requested size: 432.48051pt x 266.14209pt.
+
+Overfull \hbox (2.09155pt too wide) in paragraph at lines 3966--3974
+[]\OT1/cmr/bx/n/10.95 HALLMARK Ox-ida-tive Phos-pho-ry-la-tion (Gen-eR-a-tio $\
+OMS/cmsy/m/n/10.95 ^^Y$ \OT1/cmr/bx/n/10.95 0.65) \OT1/cmr/m/n/10.95 | the most
+ strongly
+ []
+
+
+
+[91 <./plots/phase12/phase12_hallmark_dotplot.png>]
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 4007.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `\kappa' on input line 4007.
+
+
+Package hyperref Warning: Token not allowed in a PDF string (Unicode):
+(hyperref)                removing `math shift' on input line 4007.
+
+<plots/phase12/phase12_gsea_TNF_NFKB.png, id=1049, 722.7pt x 433.62pt>
+File: plots/phase12/phase12_gsea_TNF_NFKB.png Graphic file (type png)
+<use plots/phase12/phase12_gsea_TNF_NFKB.png>
+Package pdftex.def Info: plots/phase12/phase12_gsea_TNF_NFKB.png  used on input
+ line 4010.
+(pdftex.def)             Requested size: 409.71692pt x 245.82944pt.
+
+Overfull \hbox (80.38863pt too wide) in paragraph at lines 4013--4015
+[]\OT1/cmr/m/n/10.95 This is the clas-sic GSEA run-ning en-rich-ment score (RES
+) plot for HALL-MARK[]TNFA[]SIGNALING[]VIA[]NFKB. 
+ []
+
+
+
+[92 <./plots/phase12/phase12_gsea_TNF_NFKB.png>]
+<plots/phase12/phase12_kegg_dotplot.png, id=1055, 939.51pt x 578.16pt>
+File: plots/phase12/phase12_kegg_dotplot.png Graphic file (type png)
+<use plots/phase12/phase12_kegg_dotplot.png>
+Package pdftex.def Info: plots/phase12/phase12_kegg_dotplot.png  used on input 
+line 4050.
+(pdftex.def)             Requested size: 432.48051pt x 266.14209pt.
+
+
+[93 <./plots/phase12/phase12_kegg_dotplot.png>]
+<plots/phase12/phase12_reactome_dotplot.png, id=1061, 1011.78pt x 578.16pt>
+File: plots/phase12/phase12_reactome_dotplot.png Graphic file (type png)
+<use plots/phase12/phase12_reactome_dotplot.png>
+Package pdftex.def Info: plots/phase12/phase12_reactome_dotplot.png  used on in
+put line 4093.
+(pdftex.def)             Requested size: 455.24411pt x 260.14313pt.
+
+
+[94 <./plots/phase12/phase12_reactome_dotplot.png>]
+
+[95]
+<plots/phase13/phase13_signature_heatmap.png, id=1078, 722.7pt x 505.89pt>
+File: plots/phase13/phase13_signature_heatmap.png Graphic file (type png)
+<use plots/phase13/phase13_signature_heatmap.png>
+Package pdftex.def Info: plots/phase13/phase13_signature_heatmap.png  used on i
+nput line 4248.
+(pdftex.def)             Requested size: 455.24411pt x 318.67378pt.
+
+
+[96]
+<plots/phase13/phase13_score_boxplots_GSE152418.png, id=1090, 867.24pt x 361.35
+pt>
+File: plots/phase13/phase13_score_boxplots_GSE152418.png Graphic file (type png
+)
+<use plots/phase13/phase13_score_boxplots_GSE152418.png>
+Package pdftex.def Info: plots/phase13/phase13_score_boxplots_GSE152418.png  us
+ed on input line 4285.
+(pdftex.def)             Requested size: 455.24411pt x 189.68402pt.
+
+
+[97 <./plots/phase13/phase13_signature_heatmap.png (PNG copy)>]
+<plots/phase13/phase13_coactivation_scatter_GSE152418.png, id=1097, 578.16pt x 
+505.89pt>
+File: plots/phase13/phase13_coactivation_scatter_GSE152418.png Graphic file (ty
+pe png)
+<use plots/phase13/phase13_coactivation_scatter_GSE152418.png>
+Package pdftex.def Info: plots/phase13/phase13_coactivation_scatter_GSE152418.p
+ng  used on input line 4328.
+(pdftex.def)             Requested size: 386.96027pt x 338.58945pt.
+
+
+[98 <./plots/phase13/phase13_score_boxplots_GSE152418.png>]
+
+[99 <./plots/phase13/phase13_coactivation_scatter_GSE152418.png>]
+Overfull \hbox (31.00183pt too wide) in paragraph at lines 4415--4418
+[]\OT1/cmr/m/n/10.95 The single-cell chap-ter was as-sem-bled into a clean, pub
+lication-
+ []
+
+
+Overfull \hbox (47.11635pt too wide) in paragraph at lines 4420--4423
+[]\OT1/cmr/m/n/10.95 Bulk RNA-seq from 33 whole-blood sam-ples (GSE152418)
+ []
+
+
+
+[100]
+
+[101] (./project_overview.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
@@ -1100,37 +1388,39 @@ Package rerunfilecheck Warning: File `project_overview.out' has changed.
 (rerunfilecheck)                or use package `bookmark'.
 
 Package rerunfilecheck Info: Checksums for `project_overview.out':
-(rerunfilecheck)             Before: 682096EA27BCA92FA8ECC7C81674D9B3;21987
-(rerunfilecheck)             After:  76714C5930A5964040AB5B04DBEC9D99;23540.
+(rerunfilecheck)             Before: 32C612222279B2632F37345FB1CF77B5;29397
+(rerunfilecheck)             After:  1D18FE8C8D1624A2393E0BA32CD38D6D;31512.
  ) 
 Here is how much of TeX's memory you used:
- 10484 strings out of 473190
- 176815 string characters out of 5715800
+ 10763 strings out of 473190
+ 185573 string characters out of 5715800
  569286 words of memory out of 5000000
- 33427 multiletter control sequences out of 15000+600000
- 566339 words of font info for 61 fonts, out of 8000000 for 9000
+ 33611 multiletter control sequences out of 15000+600000
+ 566698 words of font info for 62 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  69i,9n,79p,1205b,561s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb
 ></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb>
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx8.pfb></
-usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmitt10.pfb></
-usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></u
-sr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></usr
-/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/l
-ocal/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/loc
-al/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/local/
-texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/local/tex
-live/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texl
-ive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/local/texli
-ve/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/local/texliv
-e/2025/texmf-dist/fonts/type1/public/cm-super/sfbx1095.pfb></usr/local/texlive/
-2025/texmf-dist/fonts/type1/public/cm-super/sfrm1095.pfb></usr/local/texlive/20
-25/texmf-dist/fonts/type1/public/cm-super/sftt1095.pfb>
-Output written on project_overview.pdf (72 pages, 22642970 bytes).
+usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmbxti10.pfb><
+/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmitt10.pfb><
+/usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></
+usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></us
+r/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/
+local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/lo
+cal/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/local
+/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/local/te
+xlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/tex
+live/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texli
+ve/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/local/texliv
+e/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/local/texlive
+/2025/texmf-dist/fonts/type1/public/cm-super/sfbx1095.pfb></usr/local/texlive/2
+025/texmf-dist/fonts/type1/public/cm-super/sfrm1095.pfb></usr/local/texlive/202
+5/texmf-dist/fonts/type1/public/cm-super/sftt1095.pfb>
+Output written on project_overview.pdf (101 pages, 29245972 bytes).
 PDF statistics:
- 936 PDF objects out of 1000 (max. 8388607)
- 734 compressed objects within 8 object streams
- 211 named destinations out of 1000 (max. 500000)
- 1013 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1269 PDF objects out of 1440 (max. 8388607)
+ 1005 compressed objects within 11 object streams
+ 305 named destinations out of 1000 (max. 500000)
+ 1355 words of extra memory for PDF output out of 10000 (max. 10000000)
 
